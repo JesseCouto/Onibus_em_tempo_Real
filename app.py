@@ -108,22 +108,19 @@ if st:
         shapes = gtfs["shapes.txt"]
         stops = gtfs["stops.txt"]
         stop_times = gtfs["stop_times.txt"]
+        agency = gtfs["agency.txt"]
 
-        trips_routes = trips.merge(routes, on="route_id")
-        linhas = trips_routes[["route_id", "route_short_name", "route_long_name", "trip_id", "shape_id"]].drop_duplicates()
+        trips_routes = trips.merge(routes, on="route_id").merge(agency, on="agency_id", how="left")
+        linhas = trips_routes[["route_id", "route_short_name", "route_long_name", "trip_id", "shape_id", "agency_name"]].drop_duplicates()
         linhas["linha_nome"] = linhas["route_short_name"].fillna('').astype(str) + " - " + linhas["route_long_name"].fillna('').astype(str) + " (" + linhas["agency_name"].fillna('Desconhecida') + ")"
 
-        agency = gtfs["agency.txt"]
-trips_routes = trips.merge(routes, on="route_id").merge(agency, on="agency_id", how="left")
-linhas = trips_routes[["route_id", "route_short_name", "route_long_name", "trip_id", "shape_id", "agency_name"]].drop_duplicates()
-linhas["linha_nome"] = linhas["route_short_name"].fillna('').astype(str) + " - " + linhas["route_long_name"].fillna('').astype(str)
+        st.sidebar.title("🔍 Filtros de Busca")
+        agencias_disponiveis = linhas["agency_name"].dropna().unique()
+        if len(agencias_disponiveis) > 0:
+            st.sidebar.markdown("**Operadoras encontradas:**")
+            for ag in agencias_disponiveis:
+                st.sidebar.markdown(f"- {ag}")
 
-st.sidebar.title("🔍 Filtros de Busca")
-agencias_disponiveis = linhas["agency_name"].dropna().unique()
-if len(agencias_disponiveis) > 0:
-    st.sidebar.markdown("**Operadoras encontradas:**")
-    for ag in agencias_disponiveis:
-        st.sidebar.markdown(f"- {ag}")
         linhas_selecionadas = st.sidebar.multiselect("Selecione uma ou mais linhas de ônibus:", linhas["linha_nome"].unique())
         linhas_dados = linhas[linhas["linha_nome"].isin(linhas_selecionadas)]
         shapes_selecionados = shapes[shapes["shape_id"].isin(linhas_dados["shape_id"])]
@@ -131,10 +128,10 @@ if len(agencias_disponiveis) > 0:
         paradas_viagem = paradas_selecionadas.merge(stops, on="stop_id")
 
         if len(linhas_selecionadas) == 1:
-    operadora = linhas_dados.iloc[0]["agency_name"]
-    st.markdown(f"### 🏢 Operadora responsável: **{operadora}**")
+            operadora = linhas_dados.iloc[0]["agency_name"]
+            st.markdown(f"### 🏢 Operadora responsável: **{operadora}**")
 
-st.subheader("🛣️ Trajeto das Linhas Selecionadas")
+        st.subheader("🛣️ Trajeto das Linhas Selecionadas")
 
         if shapes_selecionados.empty:
             st.warning("Nenhuma forma (shape) encontrada para as linhas selecionadas.")
@@ -143,17 +140,17 @@ st.subheader("🛣️ Trajeto das Linhas Selecionadas")
         mapa_folium = folium.Map(location=[-22.9068, -43.1729], zoom_start=12)
 
         cores_operadoras = {}
-cores_base = ["red", "blue", "green", "orange", "purple", "darkred", "cadetblue", "black"]
-for i, ag in enumerate(linhas_dados["agency_name"].unique()):
-    cores_operadoras[ag] = cores_base[i % len(cores_base)]
+        cores_base = ["red", "blue", "green", "orange", "purple", "darkred", "cadetblue", "black"]
+        for i, ag in enumerate(linhas_dados["agency_name"].unique()):
+            cores_operadoras[ag] = cores_base[i % len(cores_base)]
 
-for shape_id, shape_df in shapes_selecionados.groupby("shape_id"):
-    shape_df = shape_df.sort_values("shape_pt_sequence")
-    pontos = list(zip(shape_df["shape_pt_lat"], shape_df["shape_pt_lon"]))
-    ag_name = linhas_dados[linhas_dados["shape_id"] == shape_id]["agency_name"].values[0]
-    cor = cores_operadoras.get(ag_name, "blue")
-    if len(pontos) >= 2:
-        folium.PolyLine(pontos, color=cor, weight=4, opacity=0.7, tooltip=ag_name).add_to(mapa_folium)
+        for shape_id, shape_df in shapes_selecionados.groupby("shape_id"):
+            shape_df = shape_df.sort_values("shape_pt_sequence")
+            pontos = list(zip(shape_df["shape_pt_lat"], shape_df["shape_pt_lon"]))
+            ag_name = linhas_dados[linhas_dados["shape_id"] == shape_id]["agency_name"].values[0]
+            cor = cores_operadoras.get(ag_name, "blue")
+            if len(pontos) >= 2:
+                folium.PolyLine(pontos, color=cor, weight=4, opacity=0.7, tooltip=ag_name).add_to(mapa_folium)
 
         for _, parada in paradas_viagem.iterrows():
             folium.CircleMarker(
@@ -166,7 +163,6 @@ for shape_id, shape_df in shapes_selecionados.groupby("shape_id"):
                 popup=parada["stop_name"]
             ).add_to(mapa_folium)
 
-        # Legenda de cores por operadora com controle de exibição
         mostrar_legenda = st.checkbox("📘 Mostrar legenda de cores por operadora", value=True)
         if mostrar_legenda:
             legenda_html = """<div style='position: absolute; 
