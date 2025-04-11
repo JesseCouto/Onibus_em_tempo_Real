@@ -9,10 +9,12 @@ try:
     from google.transit import gtfs_realtime_pb2
     import datetime
     import time
+    import folium
+    from streamlit_folium import st_folium
 except ModuleNotFoundError as e:
     print(f"[Aviso] Módulo ausente: {e.name}")
     print("Este aplicativo requer os seguintes pacotes:")
-    print("pip install streamlit pandas requests pydeck protobuf gtfs-realtime-bindings")
+    print("pip install streamlit pandas requests pydeck protobuf gtfs-realtime-bindings folium streamlit-folium")
     st = None
 
 if st:
@@ -123,40 +125,31 @@ if st:
         if shapes_selecionados.empty:
             st.warning("Nenhuma forma (shape) encontrada para as linhas selecionadas.")
             st.stop()
-        shape_data = shapes_selecionados.sort_values("shape_pt_sequence")
+
+        mapa_folium = folium.Map(location=[-22.9068, -43.1729], zoom_start=12)
+
+        for shape_id, shape_df in shapes_selecionados.groupby("shape_id"):
+            pontos = shape_df.sort_values("shape_pt_sequence")[["shape_pt_lat", "shape_pt_lon"]].values.tolist()
+            folium.PolyLine(pontos, color="blue", weight=4, opacity=0.7).add_to(mapa_folium)
+
+        for _, parada in paradas_viagem.iterrows():
+            folium.CircleMarker(
+                location=[parada["stop_lat"], parada["stop_lon"]],
+                radius=4,
+                color="red",
+                fill=True,
+                fill_opacity=0.9,
+                popup=parada["stop_name"]
+            ).add_to(mapa_folium)
 
         realtime_data = carregar_dados_realtime()
-        veiculos_linha = pd.DataFrame()
         if not realtime_data.empty and "route_id" in realtime_data.columns:
             veiculos_linha = realtime_data[realtime_data["route_id"].isin(linhas_dados["route_id"])]
+            for _, row in veiculos_linha.iterrows():
+                folium.Marker(
+                    location=[row["latitude"], row["longitude"]],
+                    icon=folium.Icon(color="green", icon="bus", prefix="fa"),
+                    popup=f"Veículo {row['vehicle_id']} - {row['timestamp']}"
+                ).add_to(mapa_folium)
 
-        camadas_mapa = [
-            pdk.Layer(
-                "PathLayer",
-                data=[{"path": shape_data[["shape_pt_lon", "shape_pt_lat"]].values.tolist()}],
-                get_path="path",
-                get_color=[0, 100, 250],
-                width_scale=5,
-                width_min_pixels=3,
-            ),
-            pdk.Layer(
-                "ScatterplotLayer",
-                data=paradas_viagem.drop_duplicates(subset=["stop_id"]),
-                get_position="[stop_lon, stop_lat]",
-                get_color="[255, 0, 0]",
-                get_radius=20,
-            ),
-        ]
-
-        view_state = pdk.ViewState(
-            latitude=shape_data["shape_pt_lat"].mean(),
-            longitude=shape_data["shape_pt_lon"].mean(),
-            zoom=11,
-            pitch=0,
-        )
-
-        st.pydeck_chart(pdk.Deck(
-            map_style="mapbox://styles/mapbox/light-v9",
-            initial_view_state=view_state,
-            layers=camadas_mapa,
-        ))
+        st_folium(mapa_folium, width=1200, height=700)
