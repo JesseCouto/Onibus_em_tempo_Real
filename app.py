@@ -9,6 +9,6 @@ import streamlit as st
             pitch=0,
         ),
         layers=camadas_mapa,
-        tooltip={"text": "Veículo {vehicle_id}\nHorário: {timestamp}"}
+        tooltip={"text": "Veículo {vehicle_id}\\nHorário: {timestamp}"}
     ))
 ...
