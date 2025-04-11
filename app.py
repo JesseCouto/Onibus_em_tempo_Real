@@ -120,6 +120,9 @@ if st:
 
         st.subheader("🛣️ Trajeto das Linhas Selecionadas")
 
+        if shapes_selecionados.empty:
+            st.warning("Nenhuma forma (shape) encontrada para as linhas selecionadas.")
+            st.stop()
         shape_data = shapes_selecionados.sort_values("shape_pt_sequence")
 
         realtime_data = carregar_dados_realtime()
@@ -157,7 +160,11 @@ if st:
                 )
             )
 
-        st.pydeck_chart(pdk.Deck(
+        # Verifique se shape_data possui dados válidos para renderizar o mapa
+        if shape_data.empty:
+            st.warning("Sem dados de shape para renderizar o mapa.")
+        else:
+            st.pydeck_chart(pdk.Deck(
             map_style="mapbox://styles/mapbox/light-v9",
             initial_view_state=pdk.ViewState(
                 latitude=shape_data["shape_pt_lat"].mean(),
