@@ -80,5 +80,100 @@ def carregar_dados_realtime():
     except:
         return pd.DataFrame([])
 
-# Continuação igual ao canvas original...
+st.title("🚌 GTFS Rio de Janeiro - Análise e Visualização de Linhas")
 
+gtfs = carregar_dados_gtfs(GTFS_URL)
+
+if not gtfs:
+    st.warning("⚠️ Não foi possível carregar os dados automaticamente. Faça o upload manual do arquivo GTFS (.zip).")
+    uploaded_file = st.file_uploader("📁 Faça o upload do GTFS.zip", type="zip")
+    if uploaded_file:
+        gtfs = carregar_dados_gtfs_manual(uploaded_file)
+        if gtfs:
+            st.success("✅ Arquivo GTFS carregado com sucesso!")
+            st.experimental_rerun()
+
+if gtfs:
+    routes = gtfs["routes.txt"]
+    trips = gtfs["trips.txt"]
+    shapes = gtfs["shapes.txt"]
+    stops = gtfs["stops.txt"]
+    stop_times = gtfs["stop_times.txt"]
+
+    trips_routes = trips.merge(routes, on="route_id")
+    linhas = trips_routes[["route_id", "route_short_name", "route_long_name", "trip_id", "shape_id"]].drop_duplicates()
+    linhas["linha_nome"] = linhas["route_short_name"].fillna('').astype(str) + " - " + linhas["route_long_name"].fillna('').astype(str)
+
+    st.sidebar.title("🔍 Filtros de Busca")
+    linha_escolhida = st.sidebar.selectbox("Selecione uma linha de ônibus:", linhas["linha_nome"].unique())
+    linha_dados = linhas[linhas["linha_nome"] == linha_escolhida].iloc[0]
+    shape_id = linha_dados["shape_id"]
+    trip_id = linha_dados["trip_id"]
+    route_id = linha_dados["route_id"]
+
+    st.subheader(f"🛣️ Trajeto da Linha: `{linha_escolhida}`")
+
+    shape_data = shapes[shapes["shape_id"] == shape_id].sort_values("shape_pt_sequence")
+    paradas_viagem = stop_times[stop_times["trip_id"] == trip_id].merge(stops, on="stop_id")
+
+    realtime_data = carregar_dados_realtime()
+    veiculos_linha = realtime_data[realtime_data["route_id"] == route_id]
+
+    camadas_mapa = [
+        pdk.Layer(
+            "PathLayer",
+            data=[{"path": shape_data[["shape_pt_lon", "shape_pt_lat"]].values.tolist()}],
+            get_path="path",
+            get_color=[0, 100, 250],
+            width_scale=5,
+            width_min_pixels=3,
+        ),
+        pdk.Layer(
+            "ScatterplotLayer",
+            data=paradas_viagem,
+            get_position='[stop_lon, stop_lat]',
+            get_radius=30,
+            get_fill_color=[255, 0, 0, 160],
+        )
+    ]
+
+    if not veiculos_linha.empty:
+        camadas_mapa.append(
+            pdk.Layer(
+                "ScatterplotLayer",
+                data=veiculos_linha,
+                get_position='[longitude, latitude]',
+                get_radius=50,
+                get_fill_color=[0, 255, 0, 180],
+                pickable=True,
+            )
+        )
+
+    st.pydeck_chart(pdk.Deck(
+        map_style="mapbox://styles/mapbox/light-v9",
+        initial_view_state=pdk.ViewState(
+            latitude=shape_data["shape_pt_lat"].mean(),
+            longitude=shape_data["shape_pt_lon"].mean(),
+            zoom=12,
+            pitch=0,
+        ),
+        layers=camadas_mapa,
+        tooltip={"text": "Veículo {vehicle_id}
+Horário: {timestamp}"}
+    ))
+
+    st.markdown("### 📅 Horários da Viagem")
+    st.dataframe(paradas_viagem[["stop_name", "arrival_time", "departure_time"]], use_container_width=True)
+
+    st.markdown("### 📄 Detalhes da Linha")
+    st.dataframe(linhas[linhas["linha_nome"] == linha_escolhida], use_container_width=True)
+
+    with st.expander("📋 Ver Todas as Linhas"):
+        st.dataframe(linhas.sort_values("linha_nome"), use_container_width=True)
+
+    with st.expander("⬇️ Exportar Dados"):
+        csv = paradas_viagem.to_csv(index=False).encode("utf-8")
+        nome_arquivo = f"paradas_{linha_escolhida.replace('/', '_').replace(' ', '_')}.csv"
+        st.download_button("💾 Baixar CSV de paradas", csv, nome_arquivo, "text/csv")
+else:
+    st.error("❌ Não foi possível carregar dados do GTFS.")
