@@ -141,40 +141,22 @@ if st:
             ),
             pdk.Layer(
                 "ScatterplotLayer",
-                data=paradas_viagem,
-                get_position='[stop_lon, stop_lat]',
-                get_color='[255, 0, 0]',
-                get_radius=30,
+                data=paradas_viagem.drop_duplicates(subset=["stop_id"]),
+                get_position="[stop_lon, stop_lat]",
+                get_color="[255, 0, 0]",
+                get_radius=20,
             ),
         ]
-
-        if not veiculos_linha.empty:
-            camadas_mapa.append(
-                pdk.Layer(
-                    "ScatterplotLayer",
-                    data=veiculos_linha,
-                    get_position='[longitude, latitude]',
-                    get_color='[0, 255, 0]',
-                    get_radius=50,
-                )
-            )
 
         view_state = pdk.ViewState(
             latitude=shape_data["shape_pt_lat"].mean(),
             longitude=shape_data["shape_pt_lon"].mean(),
-            zoom=12,
+            zoom=11,
             pitch=0,
         )
 
         st.pydeck_chart(pdk.Deck(
-            layers=camadas_mapa,
+            map_style="mapbox://styles/mapbox/light-v9",
             initial_view_state=view_state,
-            map_style="mapbox://styles/mapbox/light-v9"
+            layers=camadas_mapa,
         ))
-
-        st.subheader("📍 Paradas das Linhas Selecionadas")
-        st.dataframe(paradas_viagem[["stop_id", "stop_name", "stop_lat", "stop_lon"]].drop_duplicates())
-
-        if not veiculos_linha.empty:
-            st.subheader("🛰️ Veículos em Tempo Real")
-            st.dataframe(veiculos_linha)
