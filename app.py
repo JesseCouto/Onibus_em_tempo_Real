@@ -62,7 +62,7 @@ def carregar_dados_gtfs_manual(uploaded_file):
 def carregar_dados_realtime():
     feed = gtfs_realtime_pb2.FeedMessage()
     try:
-        response = requests.get("https://dados.mobilidade.rio/gps/gtfs-rt-vp")
+        response = requests.get(GTFS_REALTIME_VP)
         feed.ParseFromString(response.content)
         dados = []
         for entity in feed.entity:
@@ -82,8 +82,10 @@ def carregar_dados_realtime():
 
 st.title("🚌 GTFS Rio de Janeiro - Análise e Visualização de Linhas")
 
+# Tenta carregar do link
 gtfs = carregar_dados_gtfs(GTFS_URL)
 
+# Caso falhe, permite upload manual
 if not gtfs:
     st.warning("⚠️ Não foi possível carregar os dados automaticamente. Faça o upload manual do arquivo GTFS (.zip).")
     uploaded_file = st.file_uploader("📁 Faça o upload do GTFS.zip", type="zip")
@@ -91,7 +93,7 @@ if not gtfs:
         gtfs = carregar_dados_gtfs_manual(uploaded_file)
         if gtfs:
             st.success("✅ Arquivo GTFS carregado com sucesso!")
-            st.rerun()
+            st.experimental_rerun()
 
 if gtfs:
     routes = gtfs["routes.txt"]
