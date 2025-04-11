@@ -150,7 +150,7 @@ if st:
             ag_name = linhas_dados[linhas_dados["shape_id"] == shape_id]["agency_name"].values[0]
             cor = cores_operadoras.get(ag_name, "blue")
             if len(pontos) >= 2:
-                folium.PolyLine(pontos, color=cor, weight=4, opacity=0.7, tooltip=ag_name).add_to(mapa_folium)
+                folium.PolyLine(pontos, color=cor, weight=4, opacity=0.7, tooltip="Linha: {}".format(ag_name)).add_to(mapa_folium)
 
         for _, parada in paradas_viagem.iterrows():
             folium.CircleMarker(
