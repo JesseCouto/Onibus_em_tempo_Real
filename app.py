@@ -89,9 +89,9 @@ if not gtfs:
     uploaded_file = st.file_uploader("📁 Faça o upload do GTFS.zip", type="zip")
     if uploaded_file:
         gtfs = carregar_dados_gtfs_manual(uploaded_file)
-        if gtfs:
+        if gtfs or st.query_params.get("ready") == ["1"]:
             st.success("✅ Arquivo GTFS carregado com sucesso!")
-            st.rerun()
+            st.experimental_set_query_params(ready="1")
 
 if gtfs:
     routes = gtfs["routes.txt"]
@@ -105,19 +105,15 @@ if gtfs:
     linhas["linha_nome"] = linhas["route_short_name"].fillna('').astype(str) + " - " + linhas["route_long_name"].fillna('').astype(str)
 
     st.sidebar.title("🔍 Filtros de Busca")
-    linha_escolhida = st.sidebar.selectbox("Selecione uma linha de ônibus:", linhas["linha_nome"].unique())
-    linha_dados = linhas[linhas["linha_nome"] == linha_escolhida].iloc[0]
-    shape_id = linha_dados["shape_id"]
-    trip_id = linha_dados["trip_id"]
-    route_id = linha_dados["route_id"]
+    linhas_selecionadas = st.sidebar.multiselect("Selecione uma ou mais linhas de ônibus:", linhas["linha_nome"].unique())
+    linhas_dados = linhas[linhas["linha_nome"].isin(linhas_selecionadas)]
+    shapes_selecionados = shapes[shapes["shape_id"].isin(linhas_dados["shape_id"])]
+    paradas_selecionadas = stop_times[stop_times["trip_id"].isin(linhas_dados["trip_id"])]
+    paradas_viagem = paradas_selecionadas.merge(stops, on="stop_id")
 
-    st.subheader(f"🛣️ Trajeto da Linha: `{linha_escolhida}`")
-
-    shape_data = shapes[shapes["shape_id"] == shape_id].sort_values("shape_pt_sequence")
-    paradas_viagem = stop_times[stop_times["trip_id"] == trip_id].merge(stops, on="stop_id")
-
+    shape_data = shapes_selecionados.sort_values("shape_pt_sequence")
     realtime_data = carregar_dados_realtime()
-    veiculos_linha = realtime_data[realtime_data["route_id"] == route_id]
+    veiculos_linha = realtime_data[realtime_data["route_id"].isin(linhas_dados["route_id"])]
 
     camadas_mapa = [
         pdk.Layer(
@@ -158,21 +154,21 @@ if gtfs:
             pitch=0,
         ),
         layers=camadas_mapa,
-        tooltip={"text": "Veículo {vehicle_id}\\nHorário: {timestamp}"}
+        tooltip={"text": "Veículo {vehicle_id}\nHorário: {timestamp}"}
     ))
 
     st.markdown("### 📅 Horários da Viagem")
     st.dataframe(paradas_viagem[["stop_name", "arrival_time", "departure_time"]], use_container_width=True)
 
     st.markdown("### 📄 Detalhes da Linha")
-    st.dataframe(linhas[linhas["linha_nome"] == linha_escolhida], use_container_width=True)
+    st.dataframe(linhas_dados, use_container_width=True)
 
     with st.expander("📋 Ver Todas as Linhas"):
         st.dataframe(linhas.sort_values("linha_nome"), use_container_width=True)
 
     with st.expander("⬇️ Exportar Dados"):
         csv = paradas_viagem.to_csv(index=False).encode("utf-8")
-        nome_arquivo = f"paradas_{linha_escolhida.replace('/', '_').replace(' ', '_')}.csv"
+        nome_arquivo = "paradas_multilinhas.csv"
         st.download_button("💾 Baixar CSV de paradas", csv, nome_arquivo, "text/csv")
 else:
     st.error("❌ Não foi possível carregar dados do GTFS.")
