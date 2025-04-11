@@ -143,9 +143,9 @@ if st:
                 "ScatterplotLayer",
                 data=paradas_viagem,
                 get_position='[stop_lon, stop_lat]',
+                get_color='[255, 0, 0]',
                 get_radius=30,
-                get_fill_color=[255, 0, 0, 160],
-            )
+            ),
         ]
 
         if not veiculos_linha.empty:
@@ -154,40 +154,27 @@ if st:
                     "ScatterplotLayer",
                     data=veiculos_linha,
                     get_position='[longitude, latitude]',
+                    get_color='[0, 255, 0]',
                     get_radius=50,
-                    get_fill_color=[0, 255, 0, 180],
-                    pickable=True,
                 )
             )
 
-        # Verifique se shape_data possui dados válidos para renderizar o mapa
-        if shape_data.empty:
-            st.warning("Sem dados de shape para renderizar o mapa.")
-        else:
-            st.pydeck_chart(pdk.Deck(
-            map_style="mapbox://styles/mapbox/light-v9",
-            initial_view_state=pdk.ViewState(
-                latitude=shape_data["shape_pt_lat"].mean(),
-                longitude=shape_data["shape_pt_lon"].mean(),
-                zoom=12,
-                pitch=0,
-            ),
+        view_state = pdk.ViewState(
+            latitude=shape_data["shape_pt_lat"].mean(),
+            longitude=shape_data["shape_pt_lon"].mean(),
+            zoom=12,
+            pitch=0,
+        )
+
+        st.pydeck_chart(pdk.Deck(
             layers=camadas_mapa,
-            tooltip={"text": "Veículo {vehicle_id}\\nHorário: {timestamp}"}
+            initial_view_state=view_state,
+            map_style="mapbox://styles/mapbox/light-v9"
         ))
 
-        st.markdown("### 📅 Horários da Viagem")
-        st.dataframe(paradas_viagem[["stop_name", "arrival_time", "departure_time"]], use_container_width=True)
+        st.subheader("📍 Paradas das Linhas Selecionadas")
+        st.dataframe(paradas_viagem[["stop_id", "stop_name", "stop_lat", "stop_lon"]].drop_duplicates())
 
-        st.markdown("### 📄 Detalhes da Linha")
-        st.dataframe(linhas_dados, use_container_width=True)
-
-        with st.expander("📋 Ver Todas as Linhas"):
-            st.dataframe(linhas.sort_values("linha_nome"), use_container_width=True)
-
-        with st.expander("⬇️ Exportar Dados"):
-            csv = paradas_viagem.to_csv(index=False).encode("utf-8")
-            nome_arquivo = "paradas_multilinhas.csv"
-            st.download_button("💾 Baixar CSV de paradas", csv, nome_arquivo, "text/csv")
-else:
-    print("[Info] Streamlit não está disponível. Este script requer execução em ambiente com as dependências instaladas.")
+        if not veiculos_linha.empty:
+            st.subheader("🛰️ Veículos em Tempo Real")
+            st.dataframe(veiculos_linha)
