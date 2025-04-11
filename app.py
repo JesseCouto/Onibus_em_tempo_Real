@@ -106,12 +106,16 @@ if gtfs:
 
     st.sidebar.title("🔍 Filtros de Busca")
     linhas_selecionadas = st.sidebar.multiselect("Selecione uma ou mais linhas de ônibus:", linhas["linha_nome"].unique())
+    # Combinar dados de múltiplas linhas selecionadas
     linhas_dados = linhas[linhas["linha_nome"].isin(linhas_selecionadas)]
     shapes_selecionados = shapes[shapes["shape_id"].isin(linhas_dados["shape_id"])]
     paradas_selecionadas = stop_times[stop_times["trip_id"].isin(linhas_dados["trip_id"])]
     paradas_viagem = paradas_selecionadas.merge(stops, on="stop_id")
 
+    st.subheader("🛣️ Trajeto das Linhas Selecionadas")
+
     shape_data = shapes_selecionados.sort_values("shape_pt_sequence")
+    
     realtime_data = carregar_dados_realtime()
     veiculos_linha = realtime_data[realtime_data["route_id"].isin(linhas_dados["route_id"])]
 
@@ -154,7 +158,7 @@ if gtfs:
             pitch=0,
         ),
         layers=camadas_mapa,
-        tooltip={"text": "Veículo {vehicle_id}\nHorário: {timestamp}"}
+        tooltip={"text": "Veículo {vehicle_id}\\nHorário: {timestamp}"}
     ))
 
     st.markdown("### 📅 Horários da Viagem")
