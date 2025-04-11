@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import zipfile
@@ -158,8 +159,7 @@ if gtfs:
             pitch=0,
         ),
         layers=camadas_mapa,
-        tooltip={"text": "Veículo {vehicle_id}
-Horário: {timestamp}"}
+        tooltip={"text": "Veículo {vehicle_id}\nHorário: {timestamp}"}
     ))
 
     st.markdown("### 📅 Horários da Viagem")
