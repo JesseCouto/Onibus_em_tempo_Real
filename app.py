@@ -195,3 +195,5 @@ if st:
                 st_folium(mapa_veiculos, width=1000, height=600)
             else:
                 st.info("Nenhum veículo encontrado para as linhas selecionadas.")
+else:
+    print("[Info] Streamlit não está disponível. Este script requer execução em ambiente com as dependências instaladas.")
