@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import zipfile
@@ -92,7 +91,7 @@ if not gtfs:
         gtfs = carregar_dados_gtfs_manual(uploaded_file)
         if gtfs:
             st.success("✅ Arquivo GTFS carregado com sucesso!")
-            st.experimental_rerun()
+            st.rerun()
 
 if gtfs:
     routes = gtfs["routes.txt"]
