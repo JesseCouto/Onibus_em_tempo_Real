@@ -20,17 +20,21 @@ if uploaded_file is not None:
     st.subheader("Dados Brutos")
     st.write(df)
 
-    # Verificar se a coluna 'Início de viagem' está no formato de hora
+    # Verificar e processar a coluna 'Início de viagem'
     if 'Início de viagem' in df.columns:
-        # Converter 'Início de viagem' para datetime
+        # Tentar converter a coluna 'Início de viagem' para datetime, com erro 'coerce' para valores inválidos
         df['Início de viagem'] = pd.to_datetime(df['Início de viagem'], errors='coerce')
 
+        # Verifique se a conversão foi bem-sucedida
+        if df['Início de viagem'].isnull().any():
+            st.warning("Alguns valores na coluna 'Início de viagem' não puderam ser convertidos para data/hora.")
+        
         # Criar as faixas horárias
-        bins = ['00:00:00', '03:00:00', '06:00:00', '09:00:00', '12:00:00', '15:00:00', '18:00:00', '21:00:00', '23:59:59']
+        bins = [0, 2, 5, 8, 11, 14, 17, 20, 23, 24]  # Intervalos de hora
         labels = ['00:00-02:59', '03:00-05:59', '06:00-08:59', '09:00-11:59', '12:00-14:59', '15:00-17:59', '18:00-20:59', '21:00-23:59']
-
+        
         # Adicionar a coluna 'Faixa Horária' com as faixas baseadas no 'Início de viagem'
-        df['Faixa Horária'] = pd.cut(df['Início de viagem'].dt.hour, bins=[0, 2, 5, 8, 11, 14, 17, 20, 23], labels=labels, right=True)
+        df['Faixa Horária'] = pd.cut(df['Início de viagem'].dt.hour, bins=bins, labels=labels, right=False)
 
         # Calcular a soma da distância planejada por 'Serviço' e 'Faixa Horária'
         df_grouped = df.groupby(['Serviço', 'Faixa Horária'])['distancia_planejada'].sum().reset_index()
@@ -38,3 +42,5 @@ if uploaded_file is not None:
         # Exibir a tabela "Km Realizada por Faixa Horária" abaixo de "Dados Brutos"
         st.subheader("Km Realizada por Faixa Horária")
         st.write(df_grouped)
+    else:
+        st.warning("A coluna 'Início de viagem' não foi encontrada no arquivo.")
