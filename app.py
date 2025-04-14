@@ -1,65 +1,54 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-st.set_page_config(page_title="Dashboard de Mobilidade", layout="wide")
+# Título do aplicativo
+st.title("Análise de Dados CSV")
 
-st.title("📊 Dashboard de Indicadores de Mobilidade")
-
-# Upload do arquivo
-uploaded_file = st.file_uploader("Faça upload do arquivo CSV", type="csv")
+# Carregar arquivo CSV
+st.sidebar.header("Carregar Dados CSV")
+uploaded_file = st.sidebar.file_uploader("Escolha um arquivo CSV", type=["csv"])
 
 if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file, sep=';')
+    # Ler os dados CSV
+    df = pd.read_csv(uploaded_file)
 
-    # Converte colunas de datas e horas
-    df['início de viagem'] = pd.to_datetime(df['início de viagem'], errors='coerce')
+    # Exibir a tabela de dados
+    st.subheader("Tabela de Dados")
+    st.write(df)
 
-    # Cria faixa horária para a distância planejada com base no início de viagem
-    def classificar_faixa_horaria(hora):
-        if pd.isnull(hora):
-            return "Indefinido"
-        h = hora.hour
-        if 0 <= h < 3:
-            return "00:00 - 02:59"
-        elif 3 <= h < 6:
-            return "03:00 - 05:59"
-        elif 6 <= h < 9:
-            return "06:00 - 08:59"
-        elif 9 <= h < 12:
-            return "09:00 - 11:59"
-        elif 12 <= h < 15:
-            return "12:00 - 14:59"
-        elif 15 <= h < 18:
-            return "15:00 - 17:59"
-        elif 18 <= h < 21:
-            return "18:00 - 20:59"
-        else:
-            return "21:00 - 23:59"
+    # Exibir uma descrição do DataFrame
+    st.subheader("Resumo dos Dados")
+    st.write(df.describe())
 
-    df['faixa_fixa_planejada'] = df['início de viagem'].apply(classificar_faixa_horaria)
+    # Opção para escolher a coluna para o gráfico
+    st.sidebar.subheader("Escolher coluna para visualização")
+    columns = df.select_dtypes(include=['number']).columns.tolist()
+    selected_column = st.sidebar.selectbox("Escolha uma coluna", columns)
 
-    # Exibe dados brutos
-    st.subheader("📄 Dados Brutos")
-    st.dataframe(df)
+    # Exibir gráfico de barras ou histograma
+    st.subheader(f"Distribuição da Coluna: {selected_column}")
+    fig, ax = plt.subplots()
+    sns.histplot(df[selected_column], kde=True, ax=ax)
+    st.pyplot(fig)
 
-    # Tabela de KM planejado por serviço e faixa horária
-    df_pivot = df.groupby(['serviço', 'faixa_fixa_planejada'])['distancia_planejada'].sum().unstack(fill_value=0)
+    # Gráfico de dispersão entre duas colunas
+    st.sidebar.subheader("Gráfico de Dispersão")
+    x_column = st.sidebar.selectbox("Escolha a coluna X", columns)
+    y_column = st.sidebar.selectbox("Escolha a coluna Y", columns)
+    
+    st.subheader(f"Gráfico de Dispersão entre {x_column} e {y_column}")
+    fig, ax = plt.subplots()
+    sns.scatterplot(x=df[x_column], y=df[y_column], ax=ax)
+    st.pyplot(fig)
 
-    # Arredonda os valores
-    df_pivot = df_pivot.applymap(lambda x: round(x, 2))
+    # Gráfico de linha (opcional)
+    st.subheader(f"Gráfico de Linha de {selected_column}")
+    fig, ax = plt.subplots()
+    df[selected_column].plot(kind="line", ax=ax)
+    st.pyplot(fig)
 
-    # Ordena colunas na ordem correta das faixas
-    ordem_faixas = [
-        "00:00 - 02:59", "03:00 - 05:59", "06:00 - 08:59", "09:00 - 11:59",
-        "12:00 - 14:59", "15:00 - 17:59", "18:00 - 20:59", "21:00 - 23:59"
-    ]
-    df_pivot = df_pivot.reindex(columns=ordem_faixas)
-
-    # Adiciona linha total
-    totais = df_pivot.sum(numeric_only=True)
-    totais.name = 'Total'
-    df_pivot = pd.concat([df_pivot, totais.to_frame().T])
-
-    # Exibe tabela com somatório por faixa horária
-    st.subheader("🚌 Total KM Planejado por Serviço em Faixas de Horário")
-    st.dataframe(df_pivot)
+    # Estatísticas adicionais
+    st.subheader("Correlação entre as Colunas")
+    st.write(df.corr())
