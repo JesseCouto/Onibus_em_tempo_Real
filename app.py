@@ -20,11 +20,17 @@ def converte_data(data_str):
         'jan.': '01', 'fev.': '02', 'mar.': '03', 'abr.': '04', 'mai.': '05', 'jun.': '06',
         'jul.': '07', 'ago.': '08', 'set.': '09', 'out.': '10', 'nov.': '11', 'dez.': '12'
     }
+    # Substituindo a abreviação do mês pela numeração
     for mes_abreviado, mes_numero in meses.items():
         if mes_abreviado in data_str:
             data_str = data_str.replace(mes_abreviado, mes_numero)
             break
-    return pd.to_datetime(data_str, format='%d/%m/%Y, %H:%M:%S')
+
+    # Remover vírgulas e converter para o formato de data correto
+    data_str = data_str.replace(',', '')
+    
+    # Convertendo para o formato desejado
+    return pd.to_datetime(data_str, format='%d/%m/%Y %H:%M:%S')
 
 # Aplicando a conversão da data na coluna 'Início da viagem'
 df['Início da viagem'] = df['Início da viagem'].apply(converte_data)
