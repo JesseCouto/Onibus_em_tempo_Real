@@ -24,7 +24,7 @@ if uploaded_file is not None:
 
     # 🟠 Somatório das viagens planejadas por faixa horária
     if "data_hora_viagem" in df.columns and "distancia_planejada" in df.columns:
-        st.subheader("📊 Somatório das Viagens Planejadas por Faixa Horária")
+        st.subheader("📊 Total KM por Faixa")
 
         # Garantir os tipos corretos
         df["data_hora_viagem"] = pd.to_datetime(df["data_hora_viagem"])
