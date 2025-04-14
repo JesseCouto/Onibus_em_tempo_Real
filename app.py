@@ -51,22 +51,5 @@ if uploaded_file is not None:
         st.subheader("Dados Brutos")
         st.write(df)
 
-        # Garantir que 'Início da viagem' está no formato correto de hora
-        df['Hora'] = pd.to_datetime(df['Hora Início da viagem'], format='%H:%M:%S').dt.hour
-
-        # Criar as faixas horárias
-        bins = [0, 2, 5, 8, 11, 14, 17, 20, 23, 24]  # Intervalos de hora
-        labels = ['00:00-02:59', '03:00-05:59', '06:00-08:59', '09:00-11:59', '12:00-14:59', '15:00-17:59', '18:00-20:59', '21:00-23:59']
-        
-        # Adicionar a coluna 'Faixa Horária' com as faixas baseadas no 'Hora'
-        df['Faixa Horária'] = pd.cut(df['Hora'], bins=bins, labels=labels, right=False)
-
-        # Calcular a soma da distância planejada por 'Serviço' e 'Faixa Horária'
-        df_grouped = df.groupby(['Serviço', 'Faixa Horária'])['distancia_planejada'].sum().reset_index()
-
-        # Exibir a tabela "Km Realizada por Faixa Horária" abaixo de "Dados Brutos"
-        st.subheader("Km Realizada por Faixa Horária")
-        st.write(df_grouped)
-
     else:
         st.warning("A coluna 'Início da viagem' não foi encontrada no arquivo.")
