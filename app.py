@@ -9,14 +9,18 @@ st.sidebar.header("Carregar Dados CSV")
 uploaded_file = st.sidebar.file_uploader("Escolha um arquivo CSV", type=["csv"])
 
 if uploaded_file is not None:
-    # Ler os dados CSV com conversão automática da coluna 'Início da viagem' para datetime
-    df = pd.read_csv(uploaded_file, parse_dates=['Início da viagem'], dayfirst=True)
+    # Ler os dados CSV sem tentar converter a coluna 'Início da viagem' para datetime automaticamente
+    df = pd.read_csv(uploaded_file)
 
-    # Verificar se a conversão foi bem-sucedida
+    # Tentar converter explicitamente a coluna 'Início da viagem' para datetime
     if 'Início da viagem' in df.columns:
+        # Tentativa de conversão para datetime
+        df['Início da viagem'] = pd.to_datetime(df['Início da viagem'], errors='coerce', format='%H:%M:%S')
+
+        # Verifique se a conversão foi bem-sucedida
         if df['Início da viagem'].isnull().any():
             st.warning("Alguns valores na coluna 'Início da viagem' não puderam ser convertidos para data/hora. Estes registros foram removidos.")
-        
+
         # Limpar valores nulos da coluna 'Início da viagem'
         df = df.dropna(subset=['Início da viagem'])
 
