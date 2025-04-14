@@ -9,28 +9,24 @@ st.sidebar.header("Carregar Dados CSV")
 uploaded_file = st.sidebar.file_uploader("Escolha um arquivo CSV", type=["csv"])
 
 if uploaded_file is not None:
-    # Ler os dados CSV
-    df = pd.read_csv(uploaded_file)
+    # Ler os dados CSV com conversão automática da coluna 'Início da viagem' para datetime
+    df = pd.read_csv(uploaded_file, parse_dates=['Início da viagem'], dayfirst=True)
 
-    # Substituir "." por "," na coluna 'distancia_planejada' (ajustando para numeral brasileiro)
-    if 'distancia_planejada' in df.columns:
-        df['distancia_planejada'] = df['distancia_planejada'].astype(str).str.replace('.', ',', regex=False)
-
-    # Exibir a tabela de dados brutos
-    st.subheader("Dados Brutos")
-    st.write(df)
-
-    # Verificar e processar a coluna 'Início da viagem'
+    # Verificar se a conversão foi bem-sucedida
     if 'Início da viagem' in df.columns:
-        # Tentar converter a coluna 'Início da viagem' para datetime, com erro 'coerce' para valores inválidos
-        df['Início da viagem'] = pd.to_datetime(df['Início da viagem'], errors='coerce', format='%H:%M:%S')
-
-        # Verifique se a conversão foi bem-sucedida
         if df['Início da viagem'].isnull().any():
             st.warning("Alguns valores na coluna 'Início da viagem' não puderam ser convertidos para data/hora. Estes registros foram removidos.")
-
+        
         # Limpar valores nulos da coluna 'Início da viagem'
         df = df.dropna(subset=['Início da viagem'])
+
+        # Substituir "." por "," na coluna 'distancia_planejada' (ajustando para numeral brasileiro)
+        if 'distancia_planejada' in df.columns:
+            df['distancia_planejada'] = df['distancia_planejada'].astype(str).str.replace('.', ',', regex=False)
+
+        # Exibir a tabela de dados brutos
+        st.subheader("Dados Brutos")
+        st.write(df)
 
         # Garantir que 'Início da viagem' está no formato correto de hora
         df['Hora'] = df['Início da viagem'].dt.hour
