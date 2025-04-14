@@ -1,62 +1,90 @@
-import pandas as pd
 import streamlit as st
+import pandas as pd
 
-# Exemplo de DataFrame (suponha que você tenha seus dados aqui)
-data = {
-    'Serviço': [1, 1, 1, 2, 2, 2, 3, 3, 3],
-    'Início da viagem': [
-        '13 de abr. de 2025, 01:23:45', '13 de abr. de 2025, 04:15:00', '13 de abr. de 2025, 07:30:00',
-        '13 de abr. de 2025, 02:00:00', '13 de abr. de 2025, 08:45:00', '13 de abr. de 2025, 11:20:00',
-        '13 de abr. de 2025, 03:10:00', '13 de abr. de 2025, 15:50:00', '13 de abr. de 2025, 18:25:00'
-    ],
-    'Distância Planejada': [150.00, 180.00, 220.00, 160.00, 190.00, 100.00, 130.00, 220.00, 210.00]
-}
+# Título do aplicativo
+st.title("Visualização de Dados CSV")
 
-df = pd.DataFrame(data)
+# Carregar arquivo CSV
+st.sidebar.header("Carregar Dados CSV")
+uploaded_file = st.sidebar.file_uploader("Escolha um arquivo CSV", type=["csv"])
 
-# Função para converter a data corretamente
-def converte_data(data_str):
-    meses = {
-        'jan.': '01', 'fev.': '02', 'mar.': '03', 'abr.': '04', 'mai.': '05', 'jun.': '06',
-        'jul.': '07', 'ago.': '08', 'set.': '09', 'out.': '10', 'nov.': '11', 'dez.': '12'
-    }
-    for mes_abreviado, mes_numero in meses.items():
-        if mes_abreviado in data_str:
-            data_str = data_str.replace(mes_abreviado, mes_numero)
-            break
-    return pd.to_datetime(data_str, format='%d/%m/%Y, %H:%M:%S')
+if uploaded_file is not None:
+    # Ler os dados CSV
+    df = pd.read_csv(uploaded_file)
 
-# Aplicando a conversão da data na coluna 'Início da viagem'
-df['Início da viagem'] = df['Início da viagem'].apply(converte_data)
+    # Verificar se a coluna 'Início da viagem' está presente
+    if 'Início da viagem' in df.columns:
+        # Mapeamento de meses para substituir a abreviação pelo número
+        month_map = {
+            'jan.': '01', 'fev.': '02', 'mar.': '03', 'abr.': '04',
+            'mai.': '05', 'jun.': '06', 'jul.': '07', 'ago.': '08',
+            'set.': '09', 'out.': '10', 'nov.': '11', 'dez.': '12'
+        }
 
-# Separando a data e hora
-df['Data Início da viagem'] = df['Início da viagem'].dt.date
-df['Hora Início da viagem'] = df['Início da viagem'].dt.time
+        try:
+            # Extrair a data no formato: "13 de jan. de 2025"
+            df['Data Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2} de \w{3}\. de \d{4})')[0]
+            
+            # Substituir as abreviações dos meses para o formato numérico
+            df['Data Início da viagem'] = df['Data Início da viagem'].replace(month_map, regex=True)
 
-# Definindo as faixas horárias
-faixas = [
-    (0, 2), (3, 5), (6, 8), (9, 11), (12, 14), (15, 17), (18, 20), (21, 23)
-]
-faixas_label = ['00:00 - 02:59', '03:00 - 05:59', '06:00 - 08:59', '09:00 - 11:59', '12:00 - 14:59', '15:00 - 17:59', '18:00 - 20:59', '21:00 - 23:59']
+            # Ajustar o formato da data para dd/mm/yyyy
+            df['Data Início da viagem'] = df['Data Início da viagem'].str.replace(r' de ', '/', regex=True)
 
-# Adicionando coluna de faixa horária
-def faixa_horaria(hora):
-    for i, (inicio, fim) in enumerate(faixas):
-        if inicio <= hora <= fim:
-            return faixas_label[i]
-    return None
+            # Converter para o formato datetime com o padrão dd/mm/yyyy
+            df['Data Início da viagem'] = pd.to_datetime(df['Data Início da viagem'], format='%d/%m/%Y', errors='coerce')
 
-df['Faixa Horária'] = df['Hora Início da viagem'].apply(lambda x: faixa_horaria(x.hour))
+            # Remover a parte da hora da coluna 'Data Início da viagem'
+            df['Data Início da viagem'] = df['Data Início da viagem'].dt.date
 
-# Criando a tabela de soma por faixa horária e serviço
-pivot_table = df.pivot_table(values='Distância Planejada', index='Serviço', columns='Faixa Horária', aggfunc='sum', fill_value=0)
+            # Extrair a hora da viagem
+            df['Hora Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2}:\d{2}:\d{2})')[0]
+            df['Hora Início da viagem'] = pd.to_datetime(df['Hora Início da viagem'], format='%H:%M:%S', errors='coerce').dt.time
 
-# Adicionando uma linha total para cada faixa horária
-pivot_table.loc['Total'] = pivot_table.sum()
+            # Limpar valores nulos da coluna 'Data Início da viagem' e 'Hora Início da viagem'
+            df = df.dropna(subset=['Data Início da viagem', 'Hora Início da viagem'])
 
-# Exibindo os resultados
-st.write("**Dados Brutos**")
-st.write(df)
+        except Exception as e:
+            st.error(f"Erro ao separar e converter os dados: {e}")
+        
+        # Substituir "." por "," na coluna 'distancia_planejada' (ajustando para numeral brasileiro)
+        if 'distancia_planejada' in df.columns:
+            df['distancia_planejada'] = df['distancia_planejada'].astype(str).str.replace('.', ',', regex=False)
 
-st.write("**Km Realizada por Faixa Horária**")
-st.write(pivot_table)
+        # Exibir a tabela de dados brutos
+        st.subheader("Dados Brutos")
+        st.write(df)
+
+        # Mapeamento de faixas horárias
+        def faixa_horaria(hour):
+            if 0 <= hour < 3:
+                return '00:00 - 02:59'
+            elif 3 <= hour < 6:
+                return '03:00 - 05:59'
+            elif 6 <= hour < 9:
+                return '06:00 - 08:59'
+            elif 9 <= hour < 12:
+                return '09:00 - 11:59'
+            elif 12 <= hour < 15:
+                return '12:00 - 14:59'
+            elif 15 <= hour < 18:
+                return '15:00 - 17:59'
+            elif 18 <= hour < 21:
+                return '18:00 - 20:59'
+            else:
+                return '21:00 - 23:59'
+
+        # Aplicar a função para mapear as faixas horárias
+        df['Faixa Horária'] = df['Hora Início da viagem'].apply(lambda x: faixa_horaria(int(str(x)[:2])))
+
+        # Agrupar por "Faixa Horária" e "Serviço" e somar a "distancia_planejada"
+        if 'distancia_planejada' in df.columns and 'Serviço' in df.columns:
+            # Criar uma tabela pivotada, onde as faixas horárias são as colunas e o índice é o 'Serviço'
+            df_grouped = df.pivot_table(index='Serviço', columns='Faixa Horária', values='distancia_planejada', aggfunc='sum', fill_value=0)
+
+            # Exibir a tabela "Km Realizada por Faixa Horária"
+            st.subheader("Km Realizada por Faixa Horária")
+            st.write(df_grouped)
+
+    else:
+        st.warning("A coluna 'Início da viagem' não foi encontrada no arquivo.")
