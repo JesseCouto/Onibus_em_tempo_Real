@@ -55,5 +55,35 @@ if uploaded_file is not None:
         st.subheader("Dados Brutos")
         st.write(df)
 
+        # Mapeamento de faixas horárias
+        def faixa_horaria(hour):
+            if 0 <= hour < 3:
+                return '00:00-02:59'
+            elif 3 <= hour < 6:
+                return '03:00-05:59'
+            elif 6 <= hour < 9:
+                return '06:00-08:59'
+            elif 9 <= hour < 12:
+                return '09:00-11:59'
+            elif 12 <= hour < 15:
+                return '12:00-14:59'
+            elif 15 <= hour < 18:
+                return '15:00-17:59'
+            elif 18 <= hour < 21:
+                return '18:00-20:59'
+            else:
+                return '21:00-23:59'
+
+        # Aplicar a função para mapear as faixas horárias
+        df['Faixa Horária'] = df['Hora Início da viagem'].apply(lambda x: faixa_horaria(int(str(x)[:2])))
+
+        # Agrupar por "Serviço" e "Faixa Horária" e somar a "distancia_planejada"
+        if 'Serviço' in df.columns and 'distancia_planejada' in df.columns:
+            df_grouped = df.groupby(['Serviço', 'Faixa Horária'])['distancia_planejada'].sum().reset_index()
+
+            # Exibir a tabela "Km realizada por faixa horária"
+            st.subheader("Km Realizada por Faixa Horária")
+            st.write(df_grouped)
+
     else:
         st.warning("A coluna 'Início da viagem' não foi encontrada no arquivo.")
