@@ -12,14 +12,17 @@ if uploaded_file is not None:
     # Ler os dados CSV sem tentar converter a coluna 'Início da viagem' para datetime automaticamente
     df = pd.read_csv(uploaded_file)
 
-    # Tentar converter explicitamente a coluna 'Início da viagem' para datetime
+    # Verificar se a coluna 'Início da viagem' está presente
     if 'Início da viagem' in df.columns:
-        # Tentativa de conversão para datetime
+        # Tentar converter explicitamente a coluna 'Início da viagem' para datetime
         df['Início da viagem'] = pd.to_datetime(df['Início da viagem'], errors='coerce', format='%H:%M:%S')
 
-        # Verifique se a conversão foi bem-sucedida
-        if df['Início da viagem'].isnull().any():
-            st.warning("Alguns valores na coluna 'Início da viagem' não puderam ser convertidos para data/hora. Estes registros foram removidos.")
+        # Verificar os valores que não puderam ser convertidos
+        invalid_values = df[df['Início da viagem'].isnull()]['Início da viagem']
+        
+        if not invalid_values.empty:
+            st.warning("Alguns valores na coluna 'Início da viagem' não puderam ser convertidos para data/hora. Veja abaixo os valores problemáticos:")
+            st.write(invalid_values)
 
         # Limpar valores nulos da coluna 'Início da viagem'
         df = df.dropna(subset=['Início da viagem'])
@@ -48,5 +51,6 @@ if uploaded_file is not None:
         # Exibir a tabela "Km Realizada por Faixa Horária" abaixo de "Dados Brutos"
         st.subheader("Km Realizada por Faixa Horária")
         st.write(df_grouped)
+
     else:
         st.warning("A coluna 'Início da viagem' não foi encontrada no arquivo.")
