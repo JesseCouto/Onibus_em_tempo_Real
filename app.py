@@ -32,8 +32,14 @@ if uploaded_file is not None:
             soma_faixas = df.groupby("faixa_3h")["distancia_realizada"].sum().reset_index()
 
             st.subheader("🕒 Distância Realizada por Faixa de 3 Horas")
-            st.dataframe(soma_faixas)
 
+            # 🔸 Exibir resumo textual por faixa de horário
+            for _, row in soma_faixas.iterrows():
+                hora = row["faixa_3h"].strftime("%H:%M")
+                distancia = f"{row['distancia_realizada']:.2f}".replace(".", ",")
+                st.markdown(f"- 🕓 **{hora}** → **{distancia} km**")
+
+            # 🔸 Gráfico de barras
             fig = px.bar(soma_faixas, x="faixa_3h", y="distancia_realizada",
                          title="Distância Realizada por Faixa de 3h")
             st.plotly_chart(fig, use_container_width=True)
