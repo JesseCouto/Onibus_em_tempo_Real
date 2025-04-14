@@ -9,7 +9,7 @@ uploaded_file = st.sidebar.file_uploader("Escolha um arquivo CSV de viagens", ty
 
 # Upload da planilha de planejamento
 st.sidebar.header("Carregar Planejamento (Planejado)")
-uploaded_plan = st.sidebar.file_uploader("Escolha um arquivo CSV de planejamento", type=["csv"])
+uploaded_plan = st.sidebar.file_uploader("Escolha um arquivo Excel de planejamento", type=["xlsx"])
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
@@ -75,24 +75,25 @@ if uploaded_file is not None:
 
             # Se o planejamento foi carregado
             if uploaded_plan is not None:
-                planejamento = pd.read_csv(uploaded_plan)
+                try:
+                    planejamento = pd.read_excel(uploaded_plan)
 
-                # Supondo que o planejamento tem colunas: 'Serviço', 'Faixa Horária', 'Km Planejado'
-                # Ajuste os nomes se forem diferentes
-                planejamento.rename(columns=lambda x: x.strip(), inplace=True)
-                
-                comparativo = pd.merge(planejamento, realizado, on=['Serviço', 'Faixa Horária'], how='left')
-                comparativo['Km Realizado'] = comparativo['Km Realizado'].fillna(0)
+                    # Supondo que o planejamento tem colunas: 'Serviço', 'Faixa Horária', 'Km Planejado'
+                    planejamento.rename(columns=lambda x: x.strip(), inplace=True)
 
-                # Cálculo do percentual de cumprimento
-                comparativo['% Cumprimento'] = (comparativo['Km Realizado'] / comparativo['Km Planejado']) * 100
-                comparativo['% Cumprimento'] = comparativo['% Cumprimento'].round(1)
+                    comparativo = pd.merge(planejamento, realizado, on=['Serviço', 'Faixa Horária'], how='left')
+                    comparativo['Km Realizado'] = comparativo['Km Realizado'].fillna(0)
 
-                st.subheader("Comparativo Planejado x Realizado")
-                st.write(comparativo)
+                    # Cálculo do percentual de cumprimento
+                    comparativo['% Cumprimento'] = (comparativo['Km Realizado'] / comparativo['Km Planejado']) * 100
+                    comparativo['% Cumprimento'] = comparativo['% Cumprimento'].round(1)
 
+                    st.subheader("Comparativo Planejado x Realizado")
+                    st.write(comparativo)
+                except Exception as e:
+                    st.error(f"Erro ao ler o arquivo de planejamento: {e}")
             else:
-                st.info("Carregue a planilha de planejamento para ver a comparação.")
+                st.info("Carregue a planilha de planejamento (.xlsx) para ver a comparação.")
 
     else:
         st.warning("A coluna 'Início da viagem' não foi encontrada.")
