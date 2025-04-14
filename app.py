@@ -14,10 +14,6 @@ if uploaded_file is not None:
 
     # Verificar se a coluna 'Início da viagem' está presente
     if 'Início da viagem' in df.columns:
-        # Mostrar os primeiros valores da coluna 'Início da viagem' para diagnóstico
-        st.subheader("Valores da coluna 'Início da viagem' (para diagnóstico)")
-        st.write(df['Início da viagem'].head(20))  # Mostrar os 20 primeiros valores
-        
         # Mapeamento de meses para substituir a abreviação pelo número
         month_map = {
             'jan.': '01', 'fev.': '02', 'mar.': '03', 'abr.': '04',
@@ -41,20 +37,9 @@ if uploaded_file is not None:
             # Remover a parte da hora da coluna 'Data Início da viagem'
             df['Data Início da viagem'] = df['Data Início da viagem'].dt.date
 
-            # Verificar as datas após a conversão
-            st.subheader("Data após conversão")
-            st.write(df['Data Início da viagem'].head(20))  # Verificar as datas convertidas
-
             # Extrair a hora da viagem
             df['Hora Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2}:\d{2}:\d{2})')[0]
             df['Hora Início da viagem'] = pd.to_datetime(df['Hora Início da viagem'], format='%H:%M:%S', errors='coerce').dt.time
-
-            # Verificar os valores que não puderam ser convertidos
-            invalid_values = df[df['Data Início da viagem'].isnull() | df['Hora Início da viagem'].isnull()]
-
-            if not invalid_values.empty:
-                st.warning("Alguns valores na coluna 'Início da viagem' não puderam ser convertidos. Veja abaixo os valores problemáticos:")
-                st.write(invalid_values)
 
             # Limpar valores nulos da coluna 'Data Início da viagem' e 'Hora Início da viagem'
             df = df.dropna(subset=['Data Início da viagem', 'Hora Início da viagem'])
