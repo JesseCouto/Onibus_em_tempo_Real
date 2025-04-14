@@ -23,12 +23,15 @@ if uploaded_file is not None:
     # Verificar e processar a coluna 'Início da viagem'
     if 'Início da viagem' in df.columns:
         # Tentar converter a coluna 'Início da viagem' para datetime, com erro 'coerce' para valores inválidos
-        df['Início da viagem'] = pd.to_datetime(df['Início da viagem'], errors='coerce')
+        df['Início da viagem'] = pd.to_datetime(df['Início da viagem'], errors='coerce', format='%H:%M:%S')
 
         # Verifique se a conversão foi bem-sucedida
         if df['Início da viagem'].isnull().any():
             st.warning("Alguns valores na coluna 'Início da viagem' não puderam ser convertidos para data/hora.")
-        
+
+        # Limpar valores nulos da coluna 'Início da viagem'
+        df = df.dropna(subset=['Início da viagem'])
+
         # Criar as faixas horárias
         bins = [0, 2, 5, 8, 11, 14, 17, 20, 23, 24]  # Intervalos de hora
         labels = ['00:00-02:59', '03:00-05:59', '06:00-08:59', '09:00-11:59', '12:00-14:59', '15:00-17:59', '18:00-20:59', '21:00-23:59']
