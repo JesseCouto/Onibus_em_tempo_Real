@@ -58,28 +58,29 @@ if uploaded_file is not None:
         # Mapeamento de faixas horárias
         def faixa_horaria(hour):
             if 0 <= hour < 3:
-                return '00:00-02:59'
+                return '00:00 - 02:59'
             elif 3 <= hour < 6:
-                return '03:00-05:59'
+                return '03:00 - 05:59'
             elif 6 <= hour < 9:
-                return '06:00-08:59'
+                return '06:00 - 08:59'
             elif 9 <= hour < 12:
-                return '09:00-11:59'
+                return '09:00 - 11:59'
             elif 12 <= hour < 15:
-                return '12:00-14:59'
+                return '12:00 - 14:59'
             elif 15 <= hour < 18:
-                return '15:00-17:59'
+                return '15:00 - 17:59'
             elif 18 <= hour < 21:
-                return '18:00-20:59'
+                return '18:00 - 20:59'
             else:
-                return '21:00-23:59'
+                return '21:00 - 23:59'
 
         # Aplicar a função para mapear as faixas horárias
         df['Faixa Horária'] = df['Hora Início da viagem'].apply(lambda x: faixa_horaria(int(str(x)[:2])))
 
         # Agrupar por "Faixa Horária" e "Serviço" e somar a "distancia_planejada"
         if 'distancia_planejada' in df.columns and 'Serviço' in df.columns:
-            df_grouped = df.groupby(['Faixa Horária', 'Serviço'])['distancia_planejada'].sum().reset_index()
+            # Criar uma tabela pivotada, onde as faixas horárias são as colunas e o índice é o 'Serviço'
+            df_grouped = df.pivot_table(index='Serviço', columns='Faixa Horária', values='distancia_planejada', aggfunc='sum', fill_value=0)
 
             # Exibir a tabela "Km Realizada por Faixa Horária"
             st.subheader("Km Realizada por Faixa Horária")
