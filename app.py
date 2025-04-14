@@ -18,7 +18,7 @@ if uploaded_file is not None:
         st.subheader("Valores da coluna 'Início da viagem' (para diagnóstico)")
         st.write(df['Início da viagem'].head(20))  # Mostrar os 20 primeiros valores
         
-        # Substituir as abreviações dos meses pelo formato numérico
+        # Mapeamento de meses para substituir a abreviação pelo número
         month_map = {
             'jan.': '01', 'fev.': '02', 'mar.': '03', 'abr.': '04',
             'mai.': '05', 'jun.': '06', 'jul.': '07', 'ago.': '08',
@@ -26,12 +26,26 @@ if uploaded_file is not None:
         }
 
         try:
-            # Extrair a data e substituir os meses pelo formato numérico
+            # Extrair a data no formato: "13 de jan. de 2025"
             df['Data Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2} de \w{3}\. de \d{4})')[0]
+            
+            # Verificar os valores extraídos da data
+            st.subheader("Valores extraídos da data")
+            st.write(df['Data Início da viagem'].head(20))  # Verificar os primeiros valores extraídos
+
+            # Substituir as abreviações dos meses para o formato numérico
             df['Data Início da viagem'] = df['Data Início da viagem'].replace(month_map, regex=True)
 
-            # Converter para o formato datetime com dia/mês/ano
+            # Verificar os valores após a substituição dos meses
+            st.subheader("Data após substituir abreviações dos meses")
+            st.write(df['Data Início da viagem'].head(20))  # Verificar as datas após a substituição
+
+            # Converter para o formato datetime com o padrão dd/mm/yyyy
             df['Data Início da viagem'] = pd.to_datetime(df['Data Início da viagem'], format='%d/%m/%Y', errors='coerce')
+
+            # Verificar as datas após a conversão
+            st.subheader("Data após conversão")
+            st.write(df['Data Início da viagem'].head(20))  # Verificar as datas convertidas
 
             # Extrair a hora da viagem
             df['Hora Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2}:\d{2}:\d{2})')[0]
