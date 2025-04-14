@@ -12,9 +12,9 @@ if uploaded_file is not None:
     # Ler os dados CSV
     df = pd.read_csv(uploaded_file)
 
-    # Substituir "." por "," na coluna 'distância planejada' (ajustando para numeral brasileiro)
-    if 'distância planejada' in df.columns:
-        df['distância planejada'] = df['distância planejada'].astype(str).str.replace('.', ',', regex=False)
+    # Substituir "." por "," na coluna 'distancia_planejada' (ajustando para numeral brasileiro)
+    if 'distancia_planejada' in df.columns:
+        df['distancia_planejada'] = df['distancia_planejada'].astype(str).str.replace('.', ',', regex=False)
 
     # Exibir a tabela de dados brutos
     st.subheader("Dados Brutos")
