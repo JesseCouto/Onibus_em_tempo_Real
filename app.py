@@ -1,15 +1,15 @@
 import streamlit as st
 import pandas as pd
 
-st.title("Visualização e Comparação de Dados - Planejado x Realizado")
+st.title("Visualização de Dados CSV + Comparação com Planejamento")
 
-# Upload da planilha de viagens (realizado)
-st.sidebar.header("Carregar Dados de Viagens (Realizado)")
-uploaded_file = st.sidebar.file_uploader("Escolha um arquivo CSV de viagens", type=["csv"])
+# Carregar arquivo CSV
+st.sidebar.header("Carregar Dados Realizados (CSV)")
+uploaded_file = st.sidebar.file_uploader("Escolha um arquivo CSV", type=["csv"])
 
-# Upload da planilha de planejamento
-st.sidebar.header("Carregar Planejamento (Planejado)")
-uploaded_plan = st.sidebar.file_uploader("Escolha um arquivo Excel de planejamento", type=["xlsx"])
+# Carregar arquivo de planejamento
+st.sidebar.header("Carregar Planejamento (XLSX)")
+plan_file = st.sidebar.file_uploader("Escolha um arquivo XLSX", type=["xlsx"])
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
@@ -27,20 +27,17 @@ if uploaded_file is not None:
             df['Data Início da viagem'] = df['Data Início da viagem'].str.replace(r' de ', '/', regex=True)
             df['Data Início da viagem'] = pd.to_datetime(df['Data Início da viagem'], format='%d/%m/%Y', errors='coerce')
             df['Data Início da viagem'] = df['Data Início da viagem'].dt.date
+
             df['Hora Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2}:\d{2}:\d{2})')[0]
             df['Hora Início da viagem'] = pd.to_datetime(df['Hora Início da viagem'], format='%H:%M:%S', errors='coerce').dt.time
+
             df = df.dropna(subset=['Data Início da viagem', 'Hora Início da viagem'])
+
         except Exception as e:
-            st.error(f"Erro ao processar datas e horas: {e}")
-        
+            st.error(f"Erro ao separar e converter os dados: {e}")
+
         if 'distancia_planejada' in df.columns:
-            df['distancia_planejada'] = (
-                df['distancia_planejada']
-                .astype(str)
-                .str.replace(',', '.', regex=False)
-                .str.replace(' ', '')
-            )
-            df['distancia_planejada'] = pd.to_numeric(df['distancia_planejada'], errors='coerce')
+            df['distancia_planejada'] = df['distancia_planejada'].astype(str).str.replace(',', '.').astype(float)
 
         st.subheader("Dados Brutos")
         st.write(df)
@@ -65,35 +62,44 @@ if uploaded_file is not None:
 
         df['Faixa Horária'] = df['Hora Início da viagem'].apply(lambda x: faixa_horaria(int(str(x)[:2])))
 
-        # Tabela com km realizado por Serviço e Faixa Horária
         if 'distancia_planejada' in df.columns and 'Serviço' in df.columns:
-            realizado = df.groupby(['Serviço', 'Faixa Horária'])['distancia_planejada'].sum().reset_index()
-            realizado.rename(columns={'distancia_planejada': 'Km Realizado'}, inplace=True)
+            df_grouped = df.pivot_table(
+                index='Serviço',
+                columns='Faixa Horária',
+                values='distancia_planejada',
+                aggfunc='sum',
+                fill_value=0
+            )
 
-            st.subheader("Realizado por Serviço e Faixa Horária")
-            st.write(realizado)
+            st.subheader("Km Realizada por Faixa Horária")
+            st.write(df_grouped)
 
-            # Se o planejamento foi carregado
-            if uploaded_plan is not None:
+            # Se a planilha de planejamento for carregada
+            if plan_file is not None:
                 try:
-                    planejamento = pd.read_excel(uploaded_plan)
+                    planejamento_df = pd.read_excel(plan_file)
+                    
+                    st.subheader("Planejamento")
+                    st.write(planejamento_df)
 
-                    # Supondo que o planejamento tem colunas: 'Serviço', 'Faixa Horária', 'Km Planejado'
-                    planejamento.rename(columns=lambda x: x.strip(), inplace=True)
+                    # Garantir que ambos os dataframes têm os mesmos índices e colunas
+                    comum_index = df_grouped.index.intersection(planejamento_df['Serviço'])
+                    planejamento_df = planejamento_df.set_index('Serviço').loc[comum_index]
+                    realizado_df = df_grouped.loc[comum_index]
 
-                    comparativo = pd.merge(planejamento, realizado, on=['Serviço', 'Faixa Horária'], how='left')
-                    comparativo['Km Realizado'] = comparativo['Km Realizado'].fillna(0)
+                    comum_colunas = realizado_df.columns.intersection(planejamento_df.columns)
+                    planejamento_df = planejamento_df[comum_colunas]
+                    realizado_df = realizado_df[comum_colunas]
 
-                    # Cálculo do percentual de cumprimento
-                    comparativo['% Cumprimento'] = (comparativo['Km Realizado'] / comparativo['Km Planejado']) * 100
-                    comparativo['% Cumprimento'] = comparativo['% Cumprimento'].round(1)
+                    # Calcular percentual de cumprimento
+                    percentual_df = (realizado_df / planejamento_df.replace(0, pd.NA)) * 100
+                    percentual_df = percentual_df.round(1).fillna(0)
 
-                    st.subheader("Comparativo Planejado x Realizado")
-                    st.write(comparativo)
+                    st.subheader("Percentual de Cumprimento (%)")
+                    st.write(percentual_df)
+
                 except Exception as e:
                     st.error(f"Erro ao ler o arquivo de planejamento: {e}")
-            else:
-                st.info("Carregue a planilha de planejamento (.xlsx) para ver a comparação.")
 
     else:
-        st.warning("A coluna 'Início da viagem' não foi encontrada.")
+        st.warning("A coluna 'Início da viagem' não foi encontrada no arquivo.")
