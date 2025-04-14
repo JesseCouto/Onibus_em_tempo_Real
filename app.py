@@ -14,22 +14,17 @@ if uploaded_file is not None:
 
     # Verificar se a coluna 'Início da viagem' está presente
     if 'Início da viagem' in df.columns:
-        # Mostrar os primeiros valores da coluna 'Início da viagem' para diagnosticar
+        # Mostrar os primeiros valores da coluna 'Início da viagem' para diagnóstico
         st.subheader("Valores da coluna 'Início da viagem' (para diagnóstico)")
         st.write(df['Início da viagem'].head(20))  # Mostrar os 20 primeiros valores
         
-        # Tentar converter a coluna 'Início da viagem' para datetime
+        # Separar a data e a hora, extraindo apenas a parte da hora
         try:
-            # Tentar diferentes formatos de hora
-            df['Início da viagem'] = pd.to_datetime(df['Início da viagem'], errors='coerce', format='%H:%M:%S')
-
-            # Caso o formato anterior não funcione, tentar com AM/PM
-            if df['Início da viagem'].isnull().any():
-                df['Início da viagem'] = pd.to_datetime(df['Início da viagem'], errors='coerce', format='%I:%M %p')
-
-            # Caso ainda não tenha sido convertido, tentar com milissegundos
-            if df['Início da viagem'].isnull().any():
-                df['Início da viagem'] = pd.to_datetime(df['Início da viagem'], errors='coerce', format='%H:%M:%S.%f')
+            # Extraindo a parte da hora após a vírgula
+            df['Hora'] = df['Início da viagem'].str.split(',', expand=True)[1]
+            
+            # Converter a parte da hora para datetime
+            df['Início da viagem'] = pd.to_datetime(df['Hora'], errors='coerce', format='%H:%M:%S')
 
             # Verificar os valores que não puderam ser convertidos
             invalid_values = df[df['Início da viagem'].isnull()]['Início da viagem']
