@@ -9,6 +9,10 @@ uploaded_file = st.file_uploader("📁 Faça upload do seu arquivo CSV", type="c
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
 
+    # Substituir "." por "," na coluna "distância planejada", se existir
+    if "distância planejada" in df.columns:
+        df["distância planejada"] = df["distância planejada"].astype(str).str.replace(".", ",")
+
     st.subheader("📋 Dados brutos")
     st.dataframe(df)
 
