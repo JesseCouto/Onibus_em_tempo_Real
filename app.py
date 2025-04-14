@@ -77,9 +77,9 @@ if uploaded_file is not None:
         # Aplicar a função para mapear as faixas horárias
         df['Faixa Horária'] = df['Hora Início da viagem'].apply(lambda x: faixa_horaria(int(str(x)[:2])))
 
-        # Agrupar por "Serviço" e "Faixa Horária" e somar a "distancia_planejada"
-        if 'Serviço' in df.columns and 'distancia_planejada' in df.columns:
-            df_grouped = df.groupby(['Serviço', 'Faixa Horária'])['distancia_planejada'].sum().reset_index()
+        # Agrupar por "Faixa Horária" e somar a "distancia_planejada"
+        if 'distancia_planejada' in df.columns:
+            df_grouped = df.groupby('Faixa Horária')['distancia_planejada'].sum().reset_index()
 
             # Exibir a tabela "Km realizada por faixa horária"
             st.subheader("Km Realizada por Faixa Horária")
