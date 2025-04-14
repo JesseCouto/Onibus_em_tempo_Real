@@ -14,12 +14,16 @@ if uploaded_file is not None:
 
     # Verificar se a coluna 'Início da viagem' está presente
     if 'Início da viagem' in df.columns:
-        # Tentar converter explicitamente a coluna 'Início da viagem' para datetime
+        # Mostrar os primeiros valores da coluna 'Início da viagem' para diagnosticar
+        st.subheader("Valores da coluna 'Início da viagem' (para diagnóstico)")
+        st.write(df['Início da viagem'].head(20))  # Mostrar os 20 primeiros valores
+        
+        # Tentar converter a coluna 'Início da viagem' para datetime
         try:
-            # Tentar diferentes formatos para a conversão de hora
+            # Tentar diferentes formatos de hora
             df['Início da viagem'] = pd.to_datetime(df['Início da viagem'], errors='coerce', format='%H:%M:%S')
 
-            # Caso o formato anterior não funcione, tentar com milissegundos e AM/PM
+            # Caso o formato anterior não funcione, tentar com AM/PM
             if df['Início da viagem'].isnull().any():
                 df['Início da viagem'] = pd.to_datetime(df['Início da viagem'], errors='coerce', format='%I:%M %p')
 
