@@ -22,6 +22,48 @@ if uploaded_file is not None:
     st.subheader("📋 Dados brutos")
     st.dataframe(df)
 
+    # 🟠 Somatório das viagens planejadas por faixa horária
+    if "data_hora_viagem" in df.columns and "distancia_planejada" in df.columns:
+        st.subheader("📊 Somatório das Viagens Planejadas por Faixa Horária")
+
+        # Garantir os tipos corretos
+        df["data_hora_viagem"] = pd.to_datetime(df["data_hora_viagem"])
+        df["distancia_planejada"] = pd.to_numeric(df["distancia_planejada"], errors="coerce")
+
+        # Função para classificar faixa horária
+        def classificar_faixa(hora):
+            if hora < 3:
+                return "00:00 - 02:59"
+            elif hora < 6:
+                return "03:00 - 05:59"
+            elif hora < 9:
+                return "06:00 - 08:59"
+            elif hora < 12:
+                return "09:00 - 11:59"
+            elif hora < 15:
+                return "12:00 - 14:59"
+            elif hora < 18:
+                return "15:00 - 17:59"
+            elif hora < 21:
+                return "18:00 - 20:59"
+            else:
+                return "21:00 - 23:59"
+
+        # Adicionar coluna de faixa horária
+        df["faixa_fixa"] = df["data_hora_viagem"].dt.hour.apply(classificar_faixa)
+
+        # Agrupar por faixa horária e somar a distância planejada
+        somatorio_faixa = df.groupby("faixa_fixa")["distancia_planejada"].sum().reset_index()
+
+        # Formatar valores para string com vírgula
+        somatorio_formatado = somatorio_faixa.copy()
+        somatorio_formatado["distancia_planejada"] = somatorio_formatado["distancia_planejada"].apply(
+            lambda x: f"{x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        )
+
+        # Exibir a tabela com o somatório
+        st.dataframe(somatorio_formatado, use_container_width=True)
+
     # 🟠 Função para calcular total de distância planejada e realizada por serviço em faixas horárias específicas
     if "servico" in df.columns and "data_hora_viagem" in df.columns:
         st.subheader("📊 Total de Distância Planejada e Realizada por Serviço nas Faixas Horárias")
@@ -99,43 +141,3 @@ if uploaded_file is not None:
 
         except Exception as e:
             st.warning(f"Erro ao processar faixas de horário: {e}")
-
-    # 🟠 Distância por SERVIÇO em faixas fixas de 3h
-    if "servico" in df.columns and "data_hora_viagem" in df.columns and "distancia_realizada" in df.columns:
-        st.subheader("📊 Distância Realizada por Serviço em Faixas de 3 Horas (fixas)")
-
-        # Garantir os tipos corretos
-        df["data_hora_viagem"] = pd.to_datetime(df["data_hora_viagem"])
-        df["distancia_realizada"] = pd.to_numeric(df["distancia_realizada"], errors="coerce")
-
-        # Criar coluna de período fixo
-        def classificar_faixa(hora):
-            if hora < 3:
-                return "00:00 - 02:59"
-            elif hora < 6:
-                return "03:00 - 05:59"
-            elif hora < 9:
-                return "06:00 - 08:59"
-            elif hora < 12:
-                return "09:00 - 11:59"
-            elif hora < 15:
-                return "12:00 - 14:59"
-            elif hora < 18:
-                return "15:00 - 17:59"
-            elif hora < 21:
-                return "18:00 - 20:59"
-            else:
-                return "21:00 - 23:59"
-
-        df["faixa_fixa"] = df["data_hora_viagem"].dt.hour.apply(classificar_faixa)
-
-        # Agrupar por serviço e faixa
-        resumo = df.groupby(["servico", "faixa_fixa"])["distancia_realizada"].sum().reset_index()
-
-        # Pivotar para formato de tabela dinâmica
-        tabela_pivot = resumo.pivot(index="servico", columns="faixa_fixa", values="distancia_realizada").fillna(0)
-
-        # Formatar valores para string com vírgula
-        tabela_formatada = tabela_pivot.applymap(lambda x: f"{x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-
-        st.dataframe(tabela_formatada, use_container_width=True)
