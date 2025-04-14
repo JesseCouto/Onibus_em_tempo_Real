@@ -15,18 +15,31 @@ if uploaded_file is not None:
     # Verificar se a coluna 'Início da viagem' está presente
     if 'Início da viagem' in df.columns:
         # Tentar converter explicitamente a coluna 'Início da viagem' para datetime
-        df['Início da viagem'] = pd.to_datetime(df['Início da viagem'], errors='coerce', format='%H:%M:%S')
+        try:
+            # Tentar diferentes formatos para a conversão de hora
+            df['Início da viagem'] = pd.to_datetime(df['Início da viagem'], errors='coerce', format='%H:%M:%S')
 
-        # Verificar os valores que não puderam ser convertidos
-        invalid_values = df[df['Início da viagem'].isnull()]['Início da viagem']
+            # Caso o formato anterior não funcione, tentar com milissegundos e AM/PM
+            if df['Início da viagem'].isnull().any():
+                df['Início da viagem'] = pd.to_datetime(df['Início da viagem'], errors='coerce', format='%I:%M %p')
+
+            # Caso ainda não tenha sido convertido, tentar com milissegundos
+            if df['Início da viagem'].isnull().any():
+                df['Início da viagem'] = pd.to_datetime(df['Início da viagem'], errors='coerce', format='%H:%M:%S.%f')
+
+            # Verificar os valores que não puderam ser convertidos
+            invalid_values = df[df['Início da viagem'].isnull()]['Início da viagem']
+            
+            if not invalid_values.empty:
+                st.warning("Alguns valores na coluna 'Início da viagem' não puderam ser convertidos para data/hora. Veja abaixo os valores problemáticos:")
+                st.write(invalid_values)
+
+            # Limpar valores nulos da coluna 'Início da viagem'
+            df = df.dropna(subset=['Início da viagem'])
+
+        except Exception as e:
+            st.error(f"Erro ao converter os dados de hora: {e}")
         
-        if not invalid_values.empty:
-            st.warning("Alguns valores na coluna 'Início da viagem' não puderam ser convertidos para data/hora. Veja abaixo os valores problemáticos:")
-            st.write(invalid_values)
-
-        # Limpar valores nulos da coluna 'Início da viagem'
-        df = df.dropna(subset=['Início da viagem'])
-
         # Substituir "." por "," na coluna 'distancia_planejada' (ajustando para numeral brasileiro)
         if 'distancia_planejada' in df.columns:
             df['distancia_planejada'] = df['distancia_planejada'].astype(str).str.replace('.', ',', regex=False)
