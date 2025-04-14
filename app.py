@@ -22,13 +22,14 @@ if uploaded_file is not None:
     st.subheader("📋 Dados brutos")
     st.dataframe(df)
 
-    # 🟠 Função para calcular total de distância realizada por serviço em faixas horárias específicas
-    if "servico" in df.columns and "data_hora_viagem" in df.columns and "distancia_realizada" in df.columns:
-        st.subheader("📊 Total de Distância Realizada por Serviço nas Faixas Horárias")
+    # 🟠 Função para calcular total de distância planejada e realizada por serviço em faixas horárias específicas
+    if "servico" in df.columns and "data_hora_viagem" in df.columns:
+        st.subheader("📊 Total de Distância Planejada e Realizada por Serviço nas Faixas Horárias")
 
         # Garantir os tipos corretos
         df["data_hora_viagem"] = pd.to_datetime(df["data_hora_viagem"])
         df["distancia_realizada"] = pd.to_numeric(df["distancia_realizada"], errors="coerce")
+        df["distancia_planejada"] = pd.to_numeric(df["distancia_planejada"], errors="coerce")
 
         # Função para classificar faixa horária
         def classificar_faixa(hora):
@@ -52,16 +53,27 @@ if uploaded_file is not None:
         # Adicionar coluna de faixa horária
         df["faixa_fixa"] = df["data_hora_viagem"].dt.hour.apply(classificar_faixa)
 
-        # Agrupar por serviço e faixa
-        distancia_por_servico = df.groupby(["servico", "faixa_fixa"])["distancia_realizada"].sum().reset_index()
+        # Agrupar por serviço e faixa, somando as distâncias planejada e realizada
+        distancia_por_servico = df.groupby(["servico", "faixa_fixa"])["distancia_planejada", "distancia_realizada"].sum().reset_index()
 
-        # Exibir a tabela com total de distância realizada por serviço e faixa horária
-        tabela_distancia = distancia_por_servico.pivot(index="servico", columns="faixa_fixa", values="distancia_realizada").fillna(0)
+        # Exibir a tabela com total de distância planejada e realizada por serviço e faixa horária
+        tabela_distancia = distancia_por_servico.pivot(index="servico", columns="faixa_fixa", values=["distancia_planejada", "distancia_realizada"]).fillna(0)
 
         # Formatar valores para string com vírgula
         tabela_formatada = tabela_distancia.applymap(lambda x: f"{x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
         st.dataframe(tabela_formatada, use_container_width=True)
+
+        # Calcular somatório por serviço
+        resumo_distancia = distancia_por_servico.groupby("servico")[["distancia_planejada", "distancia_realizada"]].sum()
+
+        # Exibir resumo do somatório
+        st.subheader("📊 Resumo de Distância Planejada e Realizada por Serviço")
+        
+        # Formatar valores para string com vírgula
+        resumo_formatado = resumo_distancia.applymap(lambda x: f"{x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+        st.dataframe(resumo_formatado, use_container_width=True)
 
     # 🔵 Agrupamento por faixa de 3 horas automáticas
     if "data_hora_viagem" in df.columns and "distancia_realizada" in df.columns:
