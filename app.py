@@ -18,16 +18,23 @@ if uploaded_file is not None:
         st.subheader("Valores da coluna 'Início da viagem' (para diagnóstico)")
         st.write(df['Início da viagem'].head(20))  # Mostrar os 20 primeiros valores
         
-        # Separar a coluna 'Início da viagem' em 'Data Início da viagem' e 'Hora Início da viagem'
-        try:
-            # Usando expressões regulares para extrair a data e a hora
-            df['Data Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2} de \w{3}\. de \d{4})')[0]
-            df['Hora Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2}:\d{2}:\d{2})')[0]
-            
-            # Converter a coluna 'Data Início da viagem' para o formato datetime
-            df['Data Início da viagem'] = pd.to_datetime(df['Data Início da viagem'], format='%d de %b. de %Y', errors='coerce')
+        # Substituir as abreviações dos meses pelo formato numérico
+        month_map = {
+            'jan.': '01', 'fev.': '02', 'mar.': '03', 'abr.': '04',
+            'mai.': '05', 'jun.': '06', 'jul.': '07', 'ago.': '08',
+            'set.': '09', 'out.': '10', 'nov.': '11', 'dez.': '12'
+        }
 
-            # Converter a coluna 'Hora Início da viagem' para o formato hora
+        try:
+            # Extrair a data e substituir os meses pelo formato numérico
+            df['Data Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2} de \w{3}\. de \d{4})')[0]
+            df['Data Início da viagem'] = df['Data Início da viagem'].replace(month_map, regex=True)
+
+            # Converter para o formato datetime com dia/mês/ano
+            df['Data Início da viagem'] = pd.to_datetime(df['Data Início da viagem'], format='%d/%m/%Y', errors='coerce')
+
+            # Extrair a hora da viagem
+            df['Hora Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2}:\d{2}:\d{2})')[0]
             df['Hora Início da viagem'] = pd.to_datetime(df['Hora Início da viagem'], format='%H:%M:%S', errors='coerce').dt.time
 
             # Verificar os valores que não puderam ser convertidos
