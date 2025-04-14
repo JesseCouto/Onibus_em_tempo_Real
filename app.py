@@ -47,9 +47,15 @@ if uploaded_file is not None:
         except Exception as e:
             st.error(f"Erro ao separar e converter os dados: {e}")
         
-        # Substituir "." por "," na coluna 'distancia_planejada' (ajustando para numeral brasileiro)
+        # Converter 'distancia_planejada' para float (considerando que pode vir com vírgula)
         if 'distancia_planejada' in df.columns:
-            df['distancia_planejada'] = df['distancia_planejada'].astype(str).str.replace('.', ',', regex=False)
+            df['distancia_planejada'] = (
+                df['distancia_planejada']
+                .astype(str)
+                .str.replace(',', '.', regex=False)
+                .str.replace(' ', '')  # remover espaços em branco
+            )
+            df['distancia_planejada'] = pd.to_numeric(df['distancia_planejada'], errors='coerce')
 
         # Exibir a tabela de dados brutos
         st.subheader("Dados Brutos")
@@ -80,7 +86,13 @@ if uploaded_file is not None:
         # Agrupar por "Faixa Horária" e "Serviço" e somar a "distancia_planejada"
         if 'distancia_planejada' in df.columns and 'Serviço' in df.columns:
             # Criar uma tabela pivotada, onde as faixas horárias são as colunas e o índice é o 'Serviço'
-            df_grouped = df.pivot_table(index='Serviço', columns='Faixa Horária', values='distancia_planejada', aggfunc='sum', fill_value=0)
+            df_grouped = df.pivot_table(
+                index='Serviço',
+                columns='Faixa Horária',
+                values='distancia_planejada',
+                aggfunc='sum',
+                fill_value=0
+            )
 
             # Exibir a tabela "Km Realizada por Faixa Horária"
             st.subheader("Km Realizada por Faixa Horária")
