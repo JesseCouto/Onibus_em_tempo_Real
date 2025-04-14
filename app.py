@@ -35,6 +35,6 @@ if uploaded_file is not None:
         # Calcular a soma da distância planejada por 'Serviço' e 'Faixa Horária'
         df_grouped = df.groupby(['Serviço', 'Faixa Horária'])['distancia_planejada'].sum().reset_index()
 
-        # Exibir a tabela "Km Realizada por Faixa Horária"
+        # Exibir a tabela "Km Realizada por Faixa Horária" abaixo de "Dados Brutos"
         st.subheader("Km Realizada por Faixa Horária")
         st.write(df_grouped)
