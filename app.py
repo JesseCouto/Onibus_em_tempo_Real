@@ -38,6 +38,9 @@ if uploaded_file is not None:
             # Converter para o formato datetime com o padrão dd/mm/yyyy
             df['Data Início da viagem'] = pd.to_datetime(df['Data Início da viagem'], format='%d/%m/%Y', errors='coerce')
 
+            # Remover a parte da hora da coluna 'Data Início da viagem'
+            df['Data Início da viagem'] = df['Data Início da viagem'].dt.date
+
             # Verificar as datas após a conversão
             st.subheader("Data após conversão")
             st.write(df['Data Início da viagem'].head(20))  # Verificar as datas convertidas
