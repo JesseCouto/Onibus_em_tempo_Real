@@ -22,7 +22,7 @@ if uploaded_file is not None:
     st.subheader("📋 Dados brutos")
     st.dataframe(df)
 
-    # 🔵 Agrupamento por faixa de 3 horas
+    # 🔵 Agrupamento por faixa de 3 horas automáticas
     if "data_hora_viagem" in df.columns and "distancia_realizada" in df.columns:
         try:
             df["data_hora_viagem"] = pd.to_datetime(df["data_hora_viagem"])
@@ -31,7 +31,7 @@ if uploaded_file is not None:
 
             soma_faixas = df.groupby("faixa_3h")["distancia_realizada"].sum().reset_index()
 
-            st.subheader("🕒 Distância Realizada por Faixa de 3 Horas")
+            st.subheader("🕒 Distância Realizada por Faixa de 3 Horas (automática)")
 
             # 🔸 Exibir resumo textual por faixa de horário
             for _, row in soma_faixas.iterrows():
@@ -47,20 +47,42 @@ if uploaded_file is not None:
         except Exception as e:
             st.warning(f"Erro ao processar faixas de horário: {e}")
 
-    # 🔷 Visualização de gráficos interativos
-    st.subheader("📈 Visualização de Gráficos Personalizados")
+    # 🟠 Distância por SERVIÇO em faixas fixas de 3h
+    if "servico" in df.columns and "data_hora_viagem" in df.columns and "distancia_realizada" in df.columns:
+        st.subheader("📊 Distância Realizada por Serviço em Faixas de 3 Horas (fixas)")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        coluna_x = st.selectbox("Escolha a coluna para o eixo X:", df.columns)
-    with col2:
-        coluna_y = st.selectbox("Escolha a coluna para o eixo Y:", df.columns)
+        # Garantir os tipos corretos
+        df["data_hora_viagem"] = pd.to_datetime(df["data_hora_viagem"])
+        df["distancia_realizada"] = pd.to_numeric(df["distancia_realizada"], errors="coerce")
 
-    if coluna_x and coluna_y:
-        try:
-            # Tenta converter a coluna Y para número se estiver em formato brasileiro
-            df[coluna_y] = pd.to_numeric(df[coluna_y].astype(str).str.replace(".", "").str.replace(",", "."), errors='coerce')
-            fig = px.bar(df, x=coluna_x, y=coluna_y, title=f"{coluna_y} por {coluna_x}")
-            st.plotly_chart(fig, use_container_width=True)
-        except Exception as e:
-            st.error(f"Erro ao gerar gráfico: {e}")
+        # Criar coluna de período fixo
+        def classificar_faixa(hora):
+            if hora < 3:
+                return "00:00 - 02:59"
+            elif hora < 6:
+                return "03:00 - 05:59"
+            elif hora < 9:
+                return "06:00 - 08:59"
+            elif hora < 12:
+                return "09:00 - 11:59"
+            elif hora < 15:
+                return "12:00 - 14:59"
+            elif hora < 18:
+                return "15:00 - 17:59"
+            elif hora < 21:
+                return "18:00 - 20:59"
+            else:
+                return "21:00 - 23:59"
+
+        df["faixa_fixa"] = df["data_hora_viagem"].dt.hour.apply(classificar_faixa)
+
+        # Agrupar por serviço e faixa
+        resumo = df.groupby(["servico", "faixa_fixa"])["distancia_realizada"].sum().reset_index()
+
+        # Pivotar para formato de tabela dinâmica
+        tabela_pivot = resumo.pivot(index="servico", columns="faixa_fixa", values="distancia_realizada").fillna(0)
+
+        # Formatar valores para string com vírgula
+        tabela_formatada = tabela_pivot.applymap(lambda x: f"{x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+        st.dataframe(tabela_formatada, use_container_width=True)
