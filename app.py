@@ -1,8 +1,7 @@
 import pandas as pd
 import streamlit as st
-import re
 
-# Exemplo de DataFrame (substitua pelo seu CSV real)
+# Exemplo de DataFrame (suponha que você tenha seus dados aqui)
 data = {
     'Serviço': [1, 1, 1, 2, 2, 2, 3, 3, 3],
     'Início da viagem': [
@@ -15,15 +14,24 @@ data = {
 
 df = pd.DataFrame(data)
 
-# Função para extrair a hora da string
-def extrai_hora(horario_str):
-    match = re.search(r'(\d{2}):\d{2}:\d{2}', horario_str)
-    if match:
-        return int(match.group(1))
-    return None
+# Função para converter a data corretamente
+def converte_data(data_str):
+    meses = {
+        'jan.': '01', 'fev.': '02', 'mar.': '03', 'abr.': '04', 'mai.': '05', 'jun.': '06',
+        'jul.': '07', 'ago.': '08', 'set.': '09', 'out.': '10', 'nov.': '11', 'dez.': '12'
+    }
+    for mes_abreviado, mes_numero in meses.items():
+        if mes_abreviado in data_str:
+            data_str = data_str.replace(mes_abreviado, mes_numero)
+            break
+    return pd.to_datetime(data_str, format='%d/%m/%Y, %H:%M:%S')
 
-# Aplicando a função
-df['Hora'] = df['Início da viagem'].apply(extrai_hora)
+# Aplicando a conversão da data na coluna 'Início da viagem'
+df['Início da viagem'] = df['Início da viagem'].apply(converte_data)
+
+# Separando a data e hora
+df['Data Início da viagem'] = df['Início da viagem'].dt.date
+df['Hora Início da viagem'] = df['Início da viagem'].dt.time
 
 # Definindo as faixas horárias
 faixas = [
@@ -31,25 +39,24 @@ faixas = [
 ]
 faixas_label = ['00:00 - 02:59', '03:00 - 05:59', '06:00 - 08:59', '09:00 - 11:59', '12:00 - 14:59', '15:00 - 17:59', '18:00 - 20:59', '21:00 - 23:59']
 
-# Função para mapear a hora em uma faixa
+# Adicionando coluna de faixa horária
 def faixa_horaria(hora):
     for i, (inicio, fim) in enumerate(faixas):
         if inicio <= hora <= fim:
             return faixas_label[i]
     return None
 
-# Aplicando a classificação por faixa
-df['Faixa Horária'] = df['Hora'].apply(faixa_horaria)
+df['Faixa Horária'] = df['Hora Início da viagem'].apply(lambda x: faixa_horaria(x.hour))
 
-# Tabela dinâmica: soma da distância por faixa e serviço
+# Criando a tabela de soma por faixa horária e serviço
 pivot_table = df.pivot_table(values='Distância Planejada', index='Serviço', columns='Faixa Horária', aggfunc='sum', fill_value=0)
 
-# Adiciona a linha de totais por faixa
+# Adicionando uma linha total para cada faixa horária
 pivot_table.loc['Total'] = pivot_table.sum()
 
-# Mostra os resultados
-st.write("**Dados com Faixas Horárias**")
+# Exibindo os resultados
+st.write("**Dados Brutos**")
 st.write(df)
 
-st.write("**Soma de Km Planejado por Faixa Horária**")
+st.write("**Km Realizada por Faixa Horária**")
 st.write(pivot_table)
