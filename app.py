@@ -29,16 +29,11 @@ if uploaded_file is not None:
             # Extrair a data no formato: "13 de jan. de 2025"
             df['Data Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2} de \w{3}\. de \d{4})')[0]
             
-            # Verificar os valores extraídos da data
-            st.subheader("Valores extraídos da data")
-            st.write(df['Data Início da viagem'].head(20))  # Verificar os primeiros valores extraídos
-
             # Substituir as abreviações dos meses para o formato numérico
             df['Data Início da viagem'] = df['Data Início da viagem'].replace(month_map, regex=True)
 
-            # Verificar os valores após a substituição dos meses
-            st.subheader("Data após substituir abreviações dos meses")
-            st.write(df['Data Início da viagem'].head(20))  # Verificar as datas após a substituição
+            # Ajustar o formato da data para dd/mm/yyyy
+            df['Data Início da viagem'] = df['Data Início da viagem'].str.replace(r' de ', '/', regex=True)
 
             # Converter para o formato datetime com o padrão dd/mm/yyyy
             df['Data Início da viagem'] = pd.to_datetime(df['Data Início da viagem'], format='%d/%m/%Y', errors='coerce')
