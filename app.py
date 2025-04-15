@@ -34,44 +34,54 @@ def classificar_faixa_horaria(horario):
 if csv_file:
     try:
         df = pd.read_csv(csv_file, sep=';', encoding='utf-8')
-        df['Início da viagem'] = pd.to_datetime(df['Início da viagem'], errors='coerce')
-        df['Faixa Horária'] = df['Início da viagem'].dt.time.apply(
-            lambda x: classificar_faixa_horaria(pd.to_datetime(x, errors='coerce'))
-        )
 
-        st.subheader("Dados de Viagens Realizadas")
-        st.write(df.head())
+        st.subheader("Colunas detectadas no CSV")
+        st.write(df.columns.tolist())
 
-        # Tabela dinâmica de viagens por faixa horária e serviço
-        viagens_por_faixa = df.groupby(['Serviço', 'Faixa Horária']).size().unstack(fill_value=0)
-        st.subheader("Viagens Realizadas por Faixa Horária")
-        st.dataframe(viagens_por_faixa)
+        # Tentativa de encontrar o nome correto da coluna de horário
+        col_horario = None
+        for col in df.columns:
+            if "início" in col.lower() and "viagem" in col.lower():
+                col_horario = col
+                break
 
-        if plan_file:
-            try:
-                planejamento_df = pd.read_excel(plan_file)
-                st.subheader("Planejamento")
-                st.write(planejamento_df)
+        if not col_horario:
+            st.error("Coluna de horário 'Início da viagem' não encontrada no CSV.")
+        else:
+            df['Início da viagem'] = pd.to_datetime(df[col_horario], errors='coerce')
+            df['Faixa Horária'] = df['Início da viagem'].dt.time.apply(
+                lambda x: classificar_faixa_horaria(pd.to_datetime(x, errors='coerce'))
+            )
 
-                # Converter coluna "Serviço" para índice
-                planejamento_df.set_index('Serviço', inplace=True)
+            st.subheader("Dados de Viagens Realizadas")
+            st.write(df.head())
 
-                # Converter valores para float, tratando vírgulas
-                planejamento_df = planejamento_df.applymap(
-                    lambda x: float(str(x).replace(',', '.')) if pd.notnull(x) else 0
-                )
+            viagens_por_faixa = df.groupby(['Serviço', 'Faixa Horária']).size().unstack(fill_value=0)
+            st.subheader("Viagens Realizadas por Faixa Horária")
+            st.dataframe(viagens_por_faixa)
 
-                # Alinhar os índices e colunas para fazer a divisão
-                planejamento_df = planejamento_df.reindex(index=viagens_por_faixa.index, columns=viagens_por_faixa.columns, fill_value=0)
+            if plan_file:
+                try:
+                    planejamento_df = pd.read_excel(plan_file)
+                    st.subheader("Planejamento")
+                    st.write(planejamento_df)
 
-                percentual_df = (viagens_por_faixa / planejamento_df.replace(0, pd.NA)) * 100
-                percentual_df = percentual_df.fillna(0).round(1)
+                    planejamento_df.set_index('Serviço', inplace=True)
 
-                st.subheader("Percentual de Cumprimento (%) - 13/04/2025")
-                st.dataframe(percentual_df)
+                    planejamento_df = planejamento_df.applymap(
+                        lambda x: float(str(x).replace(',', '.')) if pd.notnull(x) else 0
+                    )
 
-            except Exception as e:
-                st.error(f"Erro ao ler ou processar o arquivo de planejamento: {e}")
+                    planejamento_df = planejamento_df.reindex(index=viagens_por_faixa.index, columns=viagens_por_faixa.columns, fill_value=0)
+
+                    percentual_df = (viagens_por_faixa / planejamento_df.replace(0, pd.NA)) * 100
+                    percentual_df = percentual_df.fillna(0).round(1)
+
+                    st.subheader("Percentual de Cumprimento (%) - 13/04/2025")
+                    st.dataframe(percentual_df)
+
+                except Exception as e:
+                    st.error(f"Erro ao ler ou processar o arquivo de planejamento: {e}")
 
     except Exception as e:
         st.error(f"Erro ao processar o arquivo CSV: {e}")
