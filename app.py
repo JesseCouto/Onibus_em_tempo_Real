@@ -40,6 +40,7 @@ if uploaded_file is not None:
             df['Data Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2} de \w{3}\. de \d{4})')[0]
             df['Hora Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2}:\d{2}:\d{2})')[0]
 
+            # Traduzir mês
             month_map = {
                 'jan.': '01', 'fev.': '02', 'mar.': '03', 'abr.': '04',
                 'mai.': '05', 'jun.': '06', 'jul.': '07', 'ago.': '08',
@@ -56,7 +57,7 @@ if uploaded_file is not None:
             st.subheader("Dados Realizados Brutos")
             st.write(df)
 
-            # Filtro por data específica do planejamento
+            # Filtro por data específica
             data_base = pd.to_datetime("2025-04-13").date()
             df_filtrado = df[df['Data Início da viagem'] == data_base]
 
@@ -83,9 +84,16 @@ if uploaded_file is not None:
                         try:
                             planejamento_df = pd.read_excel(plan_file)
 
-                            # Verificar e converter a coluna de quilometragem planejada
-                            if 'distancia_planejada' in planejamento_df.columns:
-                                planejamento_df['distancia_planejada'] = planejamento_df['distancia_planejada'].astype(str).str.replace(',', '.').astype(float)
+                            # Garantir que todas as colunas numéricas estão como float
+                            for col in planejamento_df.columns:
+                                if col != 'Serviço':
+                                    planejamento_df[col] = (
+                                        planejamento_df[col]
+                                        .astype(str)
+                                        .str.replace(',', '.')
+                                        .str.replace(' ', '')
+                                        .astype(float)
+                                    )
 
                             st.subheader("Planejamento")
                             st.write(planejamento_df)
@@ -97,12 +105,12 @@ if uploaded_file is not None:
                             # Garantir que as mesmas faixas existam no realizado
                             realizado = realizado.reindex(index=planejamento_df.index, columns=faixas_planejamento, fill_value=0)
 
-                            # Calcular o percentual com base no planejamento
+                            # Calcular o percentual de cumprimento
                             percentual_df = (realizado / planejamento_df.replace(0, pd.NA)) * 100
                             percentual_df = percentual_df.fillna(0).round(1)
 
                             st.subheader("Percentual de Cumprimento (%) - 13/04/2025")
-                            st.write(percentual_df)
+                            st.dataframe(percentual_df)
 
                         except Exception as e:
                             st.error(f"Erro ao ler ou processar o arquivo de planejamento: {e}")
