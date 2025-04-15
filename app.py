@@ -69,6 +69,15 @@ if csv_file is not None:
     st.subheader("Km Realizada por Faixa Horária (13/04/2025)")
     st.dataframe(km_realizada)
 
+    # Se o CSV também tiver a coluna de distância planejada, somamos ela por faixa
+    if 'distancia_planejada' in df_realizado_dia.columns:
+        km_planejada = df_realizado_dia.groupby(['Serviço', 'faixa'])['distancia_planejada'].sum().unstack(fill_value=0)
+        km_planejada['Total planejado (csv)'] = km_planejada.sum(axis=1)
+        km_planejada = km_planejada.reset_index()
+
+        st.subheader("Km Planejada por Faixa Horária (13/04/2025) - Extraído do CSV")
+        st.dataframe(km_planejada)
+
     # Comparação com planejado
     if xlsx_file is not None:
         try:
@@ -125,5 +134,6 @@ if csv_file is not None:
 
         except Exception as e:
             st.error(f"Erro ao processar o arquivo .xlsx: {e}")
+
 
 
