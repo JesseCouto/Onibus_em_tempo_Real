@@ -1,18 +1,23 @@
 import streamlit as st
 import pandas as pd
 import csv
-from datetime import datetime
+import io
 
-st.title("Análise de Quilometragem por Faixa Horária")
+st.title("Comparação de Planejado vs Realizado por Faixa Horária")
 
-# Função para detectar separador do CSV
-def detectar_separador(file):
-    sample = file.read(2048).decode('utf-8')
+# Upload dos arquivos
+uploaded_csv = st.file_uploader("Envie o arquivo REALIZADO (.csv)", type="csv")
+uploaded_xlsx = st.file_uploader("Envie o arquivo PLANEJADO (.xlsx)", type="xlsx")
+
+# Função para detectar o separador do CSV
+def detectar_delimitador(file):
     file.seek(0)
-    sniffer = csv.Sniffer()
-    return sniffer.sniff(sample).delimiter
+    amostra = file.read(1024).decode('utf-8')
+    file.seek(0)
+    delimitador = csv.Sniffer().sniff(amostra).delimiter
+    return delimitador
 
-# Função para determinar faixa horária
+# Função para determinar a faixa horária
 def faixa_horaria(horario):
     hora = horario.hour
     if 0 <= hora < 3:
@@ -32,55 +37,59 @@ def faixa_horaria(horario):
     else:
         return "21h-24h"
 
-# Upload do arquivo CSV de realizado
-csv_file = st.file_uploader("Envie o arquivo .CSV do realizado", type="csv")
-
-# Upload do arquivo XLSX do planejamento
-xlsx_file = st.file_uploader("Envie o arquivo .XLSX do planejamento", type="xlsx")
-
-if csv_file:
+# Processamento dos arquivos
+if uploaded_csv and uploaded_xlsx:
     try:
-        # Detecta separador automaticamente
-        separador = detectar_separador(csv_file)
-        st.info(f"Separador detectado: `{separador}`")
+        # Detecta separador
+        sep_detectado = detectar_delimitador(uploaded_csv)
+        df_realizado = pd.read_csv(uploaded_csv, sep=sep_detectado, encoding='utf-8')
 
-        # Lê o arquivo CSV com o separador detectado
-        df_realizado = pd.read_csv(csv_file, delimiter=separador)
+        st.subheader("Colunas encontradas no arquivo .csv:")
+        st.write(df_realizado.columns.tolist())
 
-        # Verifica se a coluna 'Início da viagem' existe
         if 'Início da viagem' not in df_realizado.columns:
-            st.error("A coluna 'Início da viagem' não foi encontrada no CSV.")
+            st.error("A coluna 'Início da viagem' não foi encontrada no arquivo CSV.")
         else:
-            # Converte para datetime
-            df_realizado['Início da viagem'] = pd.to_datetime(df_realizado['Início da viagem'], errors='coerce')
+            df_realizado['Início da viagem'] = pd.to_datetime(df_realizado['Início da viagem'], dayfirst=True)
+            df_realizado['Data'] = df_realizado['Início da viagem'].dt.date
+            df_realizado['Faixa Horária'] = df_realizado['Início da viagem'].dt.time.apply(faixa_horaria)
 
-            # Remove linhas com data inválida
-            df_realizado = df_realizado.dropna(subset=['Início da viagem'])
+            data_filtro = pd.to_datetime("13/04/2025", dayfirst=True).date()
+            df_realizado = df_realizado[df_realizado['Data'] == data_filtro]
 
-            # Aplica a faixa horária
-            df_realizado['Faixa Horária'] = df_realizado['Início da viagem'].apply(faixa_horaria)
+            km_realizado_por_faixa = df_realizado.groupby(['Serviço', 'Faixa Horária'])['distancia_planejada'].sum().unstack().fillna(0)
 
-            # Agrupa por Serviço e Faixa Horária
-            km_por_faixa = df_realizado.groupby(['Serviço', 'Faixa Horária'])['distancia_planejada'].sum().reset_index()
+            st.subheader("Km Realizada por Faixa Horária (13/04/2025)")
+            st.dataframe(km_realizado_por_faixa)
 
-            # Pivot para facilitar comparação
-            km_pivot = km_por_faixa.pivot(index='Serviço', columns='Faixa Horária', values='distancia_planejada').fillna(0)
+            # Leitura do planejado
+            df_planejado = pd.read_excel(uploaded_xlsx)
+            df_planejado['Dia'] = pd.to_datetime(df_planejado['Dia'], dayfirst=True)
+            df_planejado = df_planejado[df_planejado['Dia'].dt.date == data_filtro]
 
-            st.subheader("Quilometragem realizada por faixa horária e por serviço")
-            st.dataframe(km_pivot)
+            colunas_faixas_planejado = {
+                '00h-03h': 'Quilometragem entre 00h e 03h',
+                '03h-06h': 'Quilometragem entre 03h e 06h',
+                '06h-09h': 'Quilometragem entre 06h e 09h',
+                '09h-12h': 'Quilometragem entre 09h e 12h',
+                '12h-15h': 'Quilometragem entre 12h e 15h',
+                '15h-18h': 'Quilometragem entre 15h e 18h',
+                '18h-21h': 'Quilometragem entre 18h e 21h',
+                '21h-24h': 'Quilometragem entre 21h e 24h'
+            }
 
-            # Se o arquivo XLSX foi enviado
-            if xlsx_file:
-                df_planejamento = pd.read_excel(xlsx_file)
+            df_planejado_agg = df_planejado.groupby('Serviço').agg({v: 'sum' for v in colunas_faixas_planejado.values()})
+            df_planejado_agg.rename(columns={v: k for k, v in colunas_faixas_planejado.items()}, inplace=True)
 
-                # Normaliza nomes das colunas pra evitar erro
-                df_planejamento.columns = df_planejamento.columns.str.strip()
+            st.subheader("Km Planejada por Faixa Horária (13/04/2025)")
+            st.dataframe(df_planejado_agg)
 
-                # Junta com o planejamento
-                df_comparado = df_planejamento.merge(km_pivot, how='left', on='Serviço')
+            # Comparação percentual
+            percentual_cumprimento = (km_realizado_por_faixa / df_planejado_agg) * 100
+            percentual_cumprimento = percentual_cumprimento.fillna(0).round(1)
 
-                st.subheader("Comparação com o planejamento")
-                st.dataframe(df_comparado)
+            st.subheader("Percentual de Cumprimento (%) por Faixa Horária")
+            st.dataframe(percentual_cumprimento)
 
     except Exception as e:
         st.error(f"Erro ao processar os arquivos: {e}")
