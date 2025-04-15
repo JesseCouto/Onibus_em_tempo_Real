@@ -15,21 +15,21 @@ def classificar_faixa_horaria(hora):
         return None
     hora = hora.hour
     if 0 <= hora < 3:
-        return '00:00 - 02:59'
+        return 'Quilometragem entre 00h e 03h'
     elif 3 <= hora < 6:
-        return '03:00 - 05:59'
+        return 'Quilometragem entre 03h e 06h'
     elif 6 <= hora < 9:
-        return '06:00 - 08:59'
+        return 'Quilometragem entre 06h e 09h'
     elif 9 <= hora < 12:
-        return '09:00 - 11:59'
+        return 'Quilometragem entre 09h e 12h'
     elif 12 <= hora < 15:
-        return '12:00 - 14:59'
+        return 'Quilometragem entre 12h e 15h'
     elif 15 <= hora < 18:
-        return '15:00 - 17:59'
+        return 'Quilometragem entre 15h e 18h'
     elif 18 <= hora < 21:
-        return '18:00 - 20:59'
+        return 'Quilometragem entre 18h e 21h'
     else:
-        return '21:00 - 23:59'
+        return 'Quilometragem entre 21h e 24h'
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
@@ -40,7 +40,6 @@ if uploaded_file is not None:
             df['Data Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2} de \w{3}\. de \d{4})')[0]
             df['Hora Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2}:\d{2}:\d{2})')[0]
 
-            # Traduzir mês
             month_map = {
                 'jan.': '01', 'fev.': '02', 'mar.': '03', 'abr.': '04',
                 'mai.': '05', 'jun.': '06', 'jul.': '07', 'ago.': '08',
@@ -57,14 +56,13 @@ if uploaded_file is not None:
             st.subheader("Dados Realizados Brutos")
             st.write(df)
 
-            # Filtro por data específica
+            # Filtro por data específica do planejamento
             data_base = pd.to_datetime("2025-04-13").date()
             df_filtrado = df[df['Data Início da viagem'] == data_base]
 
             if df_filtrado.empty:
                 st.warning("Nenhum dado encontrado com a data 13/04/2025.")
             else:
-                # Agrupamento por Serviço e Faixa Horária
                 if 'distancia_planejada' in df_filtrado.columns and 'Serviço' in df_filtrado.columns:
                     df_filtrado['distancia_planejada'] = df_filtrado['distancia_planejada'].astype(str).str.replace(',', '.').astype(float)
 
@@ -84,33 +82,35 @@ if uploaded_file is not None:
                         try:
                             planejamento_df = pd.read_excel(plan_file)
 
-                            # Converter todas as colunas exceto 'Serviço'
-                            for col in planejamento_df.columns:
-                                if col != 'Serviço':
-                                    planejamento_df[col] = (
-                                        planejamento_df[col]
-                                        .astype(str)
-                                        .str.replace(',', '.')
-                                        .str.replace(' ', '')
-                                        .str.replace('-', '0')  # se tiver traços, interpreta como 0
-                                        .astype(float)
-                                    )
-
                             st.subheader("Planejamento")
                             st.write(planejamento_df)
 
+                            # Selecionar apenas as colunas relevantes
+                            colunas_faixas = [
+                                'Quilometragem entre 00h e 03h',
+                                'Quilometragem entre 03h e 06h',
+                                'Quilometragem entre 06h e 09h',
+                                'Quilometragem entre 09h e 12h',
+                                'Quilometragem entre 12h e 15h',
+                                'Quilometragem entre 15h e 18h',
+                                'Quilometragem entre 18h e 21h',
+                                'Quilometragem entre 21h e 24h'
+                            ]
+
+                            planejamento_df = planejamento_df[['Serviço'] + colunas_faixas]
+                            planejamento_df[colunas_faixas] = planejamento_df[colunas_faixas].apply(
+                                lambda x: x.astype(str).str.replace(',', '.').astype(float)
+                            )
                             planejamento_df = planejamento_df.set_index('Serviço')
-                            faixas_planejamento = planejamento_df.columns
 
-                            # Reindexar o realizado
-                            realizado = realizado.reindex(index=planejamento_df.index, columns=faixas_planejamento, fill_value=0)
+                            # Reindexar o realizado para coincidir com os serviços e faixas
+                            realizado = realizado.reindex(index=planejamento_df.index, columns=colunas_faixas, fill_value=0)
 
-                            # Calcular o percentual
                             percentual_df = (realizado / planejamento_df.replace(0, pd.NA)) * 100
                             percentual_df = percentual_df.fillna(0).round(1)
 
                             st.subheader("Percentual de Cumprimento (%) - 13/04/2025")
-                            st.dataframe(percentual_df)
+                            st.write(percentual_df)
 
                         except Exception as e:
                             st.error(f"Erro ao ler ou processar o arquivo de planejamento: {e}")
