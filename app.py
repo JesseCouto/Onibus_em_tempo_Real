@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 from datetime import datetime
 
 st.title("Análise de Quilometragem por Faixa Horária")
@@ -38,15 +40,11 @@ if csv_file is not None:
     st.subheader("Dados Brutos do CSV (Realizado)")
     st.dataframe(df_realizado)
 
-    # Conversão de datas sem alterar a coluna original, apenas para análise posterior
-    try:
-        df_realizado['Início convertida'] = pd.to_datetime(df_realizado['Início da viagem'], errors='coerce', dayfirst=True)
-    except Exception as e:
-        st.warning(f"Erro na conversão da coluna 'Início da viagem': {e}")
-        df_realizado['Início convertida'] = pd.NaT
-
-    # Filtrar pelo dia 13/04/2025
-    data_filtro = pd.to_datetime("2025-04-13")
+    # Seleção da data de filtragem
+    data_filtro = st.date_input("Selecione a data para análise", min_value=datetime(2020, 1, 1), max_value=datetime.today(), value=datetime(2025, 4, 13))
+    df_realizado['Início convertida'] = pd.to_datetime(df_realizado['Início da viagem'], errors='coerce', dayfirst=True)
+    
+    # Filtrar pelo dia selecionado
     df_realizado_dia = df_realizado[df_realizado['Início convertida'].dt.date == data_filtro.date()].copy()
 
     # Extrair hora e faixa
@@ -66,8 +64,18 @@ if csv_file is not None:
     # Converte de volta para o formato com índice como coluna
     km_realizada = km_realizada.reset_index()
 
-    st.subheader("Km Realizada por Faixa Horária (13/04/2025)")
+    st.subheader("Km Realizada por Faixa Horária")
     st.dataframe(km_realizada)
+
+    # Gráfico de barras interativo para visualização da quilometragem realizada por faixa
+    st.subheader("Gráfico de Quilometragem Realizada por Faixa Horária")
+    plt.figure(figsize=(10, 6))
+    km_realizada.set_index('Serviço')[faixas_horarias.keys()].plot(kind='bar', stacked=True, figsize=(12, 8))
+    plt.title(f'Quilometragem Realizada por Faixa Horária em {data_filtro.strftime("%d/%m/%Y")}')
+    plt.ylabel('Km Realizada')
+    plt.xlabel('Serviço')
+    plt.xticks(rotation=45)
+    st.pyplot()
 
     # Se o CSV também tiver a coluna de distância planejada, somamos ela por faixa
     if 'distancia_planejada' in df_realizado_dia.columns:
@@ -75,7 +83,7 @@ if csv_file is not None:
         km_planejada['Total planejado (csv)'] = km_planejada.sum(axis=1)
         km_planejada = km_planejada.reset_index()
 
-        st.subheader("Km Planejada por Faixa Horária (13/04/2025) - Extraído do CSV")
+        st.subheader("Km Planejada por Faixa Horária - Extraído do CSV")
         st.dataframe(km_planejada)
 
     # Comparação com planejado
@@ -132,8 +140,24 @@ if csv_file is not None:
             st.subheader("Comparativo Km Realizado x Planejado por Faixa Horária")
             st.dataframe(df_comparativo)
 
+            # Opção para exportar os dados
+            exportar = st.radio("Deseja exportar os dados?", options=["Não", "CSV", "Excel"])
+            if exportar == "CSV":
+                st.download_button(
+                    label="Baixar CSV",
+                    data=df_comparativo.to_csv(index=False),
+                    file_name="comparativo_km.csv",
+                    mime="text/csv"
+                )
+            elif exportar == "Excel":
+                st.download_button(
+                    label="Baixar Excel",
+                    data=df_comparativo.to_excel(index=False, engine="openpyxl"),
+                    file_name="comparativo_km.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+
         except Exception as e:
             st.error(f"Erro ao processar o arquivo .xlsx: {e}")
-
 
 
