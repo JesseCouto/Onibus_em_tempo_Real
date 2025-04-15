@@ -1,121 +1,89 @@
 import streamlit as st
 import pandas as pd
+import datetime
 
-st.title("Visualização de Dados: Realizado vs Planejado")
+st.set_page_config(layout="wide")
+st.title("Análise de Quilometragem por Faixa Horária")
 
 # Upload dos arquivos
-st.sidebar.header("1. Carregar Dados Realizados (.CSV)")
-uploaded_file = st.sidebar.file_uploader("Escolha um arquivo CSV", type=["csv"])
+csv_file = st.file_uploader("Envie o arquivo de realizado (.csv)", type="csv")
+plan_file = st.file_uploader("Envie o arquivo de planejamento (.xlsx)", type="xlsx")
 
-st.sidebar.header("2. Carregar Planejamento (.XLSX)")
-plan_file = st.sidebar.file_uploader("Escolha um arquivo XLSX", type=["xlsx"])
+# Data de interesse
+data_planejada = datetime.date(2025, 4, 13)
 
-def classificar_faixa_horaria(hora):
-    if pd.isnull(hora):
-        return None
-    hora = hora.hour
-    if 0 <= hora < 3:
-        return 'Quilometragem entre 00h e 03h'
-    elif 3 <= hora < 6:
-        return 'Quilometragem entre 03h e 06h'
-    elif 6 <= hora < 9:
-        return 'Quilometragem entre 06h e 09h'
-    elif 9 <= hora < 12:
-        return 'Quilometragem entre 09h e 12h'
-    elif 12 <= hora < 15:
-        return 'Quilometragem entre 12h e 15h'
-    elif 15 <= hora < 18:
-        return 'Quilometragem entre 15h e 18h'
-    elif 18 <= hora < 21:
-        return 'Quilometragem entre 18h e 21h'
-    else:
-        return 'Quilometragem entre 21h e 24h'
+# Faixas horárias
+faixas = {
+    "00h às 03h": (0, 3),
+    "03h às 06h": (3, 6),
+    "06h às 09h": (6, 9),
+    "09h às 12h": (9, 12),
+    "12h às 15h": (12, 15),
+    "15h às 18h": (15, 18),
+    "18h às 21h": (18, 21),
+    "21h às 24h": (21, 24),
+}
 
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
+# Processar realizado
+if csv_file is not None:
+    try:
+        df = pd.read_csv(csv_file, sep=';', encoding='utf-8')
+        df['Início da viagem'] = pd.to_datetime(df['Início da viagem'], errors='coerce')
 
-    if 'Início da viagem' in df.columns:
-        try:
-            # Extrair data e hora
-            df['Data Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2} de \w{3}\. de \d{4})')[0]
-            df['Hora Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2}:\d{2}:\d{2})')[0]
+        df = df[df['Início da viagem'].dt.date == data_planejada]
+        df['Hora'] = df['Início da viagem'].dt.hour
 
-            month_map = {
-                'jan.': '01', 'fev.': '02', 'mar.': '03', 'abr.': '04',
-                'mai.': '05', 'jun.': '06', 'jul.': '07', 'ago.': '08',
-                'set.': '09', 'out.': '10', 'nov.': '11', 'dez.': '12'
-            }
+        resultados = []
+        for faixa, (inicio, fim) in faixas.items():
+            faixa_df = df[(df['Hora'] >= inicio) & (df['Hora'] < fim)]
+            soma_distancia = faixa_df.groupby('Serviço')['Distância'].sum()
+            resultados.append(soma_distancia.rename(faixa))
 
-            df['Data Início da viagem'] = df['Data Início da viagem'].replace(month_map, regex=True)
-            df['Data Início da viagem'] = df['Data Início da viagem'].str.replace(r' de ', '/', regex=True)
-            df['Data Início da viagem'] = pd.to_datetime(df['Data Início da viagem'], format='%d/%m/%Y', errors='coerce').dt.date
+        realizado = pd.concat(resultados, axis=1).fillna(0)
+        st.subheader(f"Km Realizada por Faixa Horária ({data_planejada.strftime('%d/%m/%Y')})")
+        st.write(realizado)
 
-            df['Hora Início da viagem'] = pd.to_datetime(df['Hora Início da viagem'], format='%H:%M:%S', errors='coerce')
-            df['Faixa Horária'] = df['Hora Início da viagem'].apply(classificar_faixa_horaria)
+    except Exception as e:
+        st.error(f"Erro ao ler ou processar o arquivo de realizado: {e}")
 
-            st.subheader("Dados Realizados Brutos")
-            st.write(df)
+# Processar planejamento
+if plan_file is not None:
+    try:
+        planejamento_df = pd.read_excel(plan_file)
 
-            # Filtro apenas do dia do planejamento
-            data_planejada = pd.to_datetime("2025-04-13").date()
-            df_filtrado = df[df['Data Início da viagem'] == data_planejada]
+        # Converter coluna de data e filtrar
+        if 'Data' in planejamento_df.columns:
+            planejamento_df['Data'] = pd.to_datetime(planejamento_df['Data'], dayfirst=True, errors='coerce').dt.date
+            planejamento_df = planejamento_df[planejamento_df['Data'] == data_planejada]
 
-            if df_filtrado.empty:
-                st.warning("Nenhum dado encontrado com a data 13/04/2025.")
-            else:
-                if 'distancia_planejada' in df_filtrado.columns and 'Serviço' in df_filtrado.columns:
-                    df_filtrado['distancia_planejada'] = df_filtrado['distancia_planejada'].astype(str).str.replace(',', '.').astype(float)
+        st.subheader("Planejamento (13/04/2025)")
+        st.write(planejamento_df)
 
-                    realizado = df_filtrado.pivot_table(
-                        index='Serviço',
-                        columns='Faixa Horária',
-                        values='distancia_planejada',
-                        aggfunc='sum',
-                        fill_value=0
-                    )
+        colunas_faixas = [
+            'Quilometragem entre 00h e 03h',
+            'Quilometragem entre 03h e 06h',
+            'Quilometragem entre 06h e 09h',
+            'Quilometragem entre 09h e 12h',
+            'Quilometragem entre 12h e 15h',
+            'Quilometragem entre 15h e 18h',
+            'Quilometragem entre 18h e 21h',
+            'Quilometragem entre 21h e 24h'
+        ]
 
-                    st.subheader("Km Realizada por Faixa Horária (13/04/2025)")
-                    st.write(realizado)
+        planejamento_df = planejamento_df[['Serviço'] + colunas_faixas]
+        planejamento_df[colunas_faixas] = planejamento_df[colunas_faixas].apply(
+            lambda x: x.astype(str).str.replace(',', '.').astype(float)
+        )
+        planejamento_df = planejamento_df.set_index('Serviço')
 
-                    # Planejamento
-                    if plan_file is not None:
-                        try:
-                            planejamento_df = pd.read_excel(plan_file)
+        # Comparar com realizado
+        realizado = realizado.reindex(index=planejamento_df.index, columns=colunas_faixas, fill_value=0)
 
-                            st.subheader("Planejamento")
-                            st.write(planejamento_df)
+        percentual_df = (realizado / planejamento_df.replace(0, pd.NA)) * 100
+        percentual_df = percentual_df.fillna(0).round(1)
 
-                            colunas_faixas = [
-                                'Quilometragem entre 00h e 03h',
-                                'Quilometragem entre 03h e 06h',
-                                'Quilometragem entre 06h e 09h',
-                                'Quilometragem entre 09h e 12h',
-                                'Quilometragem entre 12h e 15h',
-                                'Quilometragem entre 15h e 18h',
-                                'Quilometragem entre 18h e 21h',
-                                'Quilometragem entre 21h e 24h'
-                            ]
+        st.subheader("Percentual de Cumprimento (%) - 13/04/2025")
+        st.write(percentual_df)
 
-                            planejamento_df = planejamento_df[['Serviço'] + colunas_faixas]
-                            planejamento_df[colunas_faixas] = planejamento_df[colunas_faixas].apply(
-                                lambda x: x.astype(str).str.replace(',', '.').astype(float)
-                            )
-                            planejamento_df = planejamento_df.set_index('Serviço')
-
-                            # Comparar com realizado
-                            realizado = realizado.reindex(index=planejamento_df.index, columns=colunas_faixas, fill_value=0)
-
-                            percentual_df = (realizado / planejamento_df.replace(0, pd.NA)) * 100
-                            percentual_df = percentual_df.fillna(0).round(1)
-
-                            st.subheader("Percentual de Cumprimento (%) - 13/04/2025")
-                            st.write(percentual_df)
-
-                        except Exception as e:
-                            st.error(f"Erro ao ler ou processar o arquivo de planejamento: {e}")
-                else:
-                    st.warning("Colunas 'distancia_planejada' ou 'Serviço' ausentes no CSV.")
-        except Exception as e:
-            st.error(f"Erro ao processar os dados: {e}")
-    else:
-        st.warning("A coluna 'Início da viagem' não foi encontrada no arquivo CSV.")
+    except Exception as e:
+        st.error(f"Erro ao ler ou processar o arquivo de planejamento: {e}")
