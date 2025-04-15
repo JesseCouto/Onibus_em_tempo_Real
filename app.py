@@ -53,8 +53,18 @@ if csv_file is not None:
     df_realizado_dia['hora'] = df_realizado_dia['Início convertida'].dt.hour
     df_realizado_dia['faixa'] = df_realizado_dia['hora'].apply(identificar_faixa_horaria)
 
+    # Permitir escolha da coluna de distância
+    colunas_disponiveis = df_realizado.columns.tolist()
+    coluna_distancia = st.selectbox("Selecione a coluna de quilometragem realizada", colunas_disponiveis)
+
     # Somar km realizada por Serviço e Faixa
-    km_realizada = df_realizado_dia.groupby(['Serviço', 'faixa'])['distancia_planejada'].sum().unstack(fill_value=0).reset_index()
+    km_realizada = df_realizado_dia.groupby(['Serviço', 'faixa'])[coluna_distancia].sum().unstack(fill_value=0)
+
+    # Adiciona coluna com o total da quilometragem realizada por linha
+    km_realizada['Total realizado'] = km_realizada.sum(axis=1)
+
+    # Converte de volta para o formato com índice como coluna
+    km_realizada = km_realizada.reset_index()
 
     st.subheader("Km Realizada por Faixa Horária (13/04/2025)")
     st.dataframe(km_realizada)
@@ -93,19 +103,27 @@ if csv_file is not None:
 
             df_planejado = df_planejado.rename(columns=renomear)
 
+            # Calcular total planejado
+            df_planejado['Total planejado'] = df_planejado[[col for col in renomear.values()]].sum(axis=1)
+
             # Mesclar os dados de realizado e planejado
             df_comparativo = pd.merge(km_realizada, df_planejado, on='Serviço', how='outer', suffixes=('_realizado', '_planejado'))
 
-            # Calcular percentual
+            # Calcular percentual por faixa
             for faixa in faixas_horarias.keys():
                 col_real = f"{faixa}_realizado"
                 col_plan = f"{faixa}_planejado"
                 if col_real in df_comparativo.columns and col_plan in df_comparativo.columns:
                     df_comparativo[f"{faixa}_%"] = (df_comparativo[col_real] / df_comparativo[col_plan]) * 100
 
+            # Calcular diferença e percentual total
+            df_comparativo['Diferença total'] = df_comparativo['Total realizado'] - df_comparativo['Total planejado']
+            df_comparativo['% realizado vs planejado'] = (df_comparativo['Total realizado'] / df_comparativo['Total planejado']) * 100
+
             st.subheader("Comparativo Km Realizado x Planejado por Faixa Horária")
             st.dataframe(df_comparativo)
 
         except Exception as e:
             st.error(f"Erro ao processar o arquivo .xlsx: {e}")
+
 
