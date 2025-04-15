@@ -59,6 +59,10 @@ if csv_file is not None:
     df_realizado_dia = df_realizado_dia[df_realizado_dia['Serviço'].isin(servicos_selecionados)]
 
     km_realizada = df_realizado_dia.groupby(['Serviço', 'faixa'])[coluna_distancia].sum().unstack(fill_value=0)
+    for faixa in faixas_horarias.keys():
+        if faixa not in km_realizada.columns:
+            km_realizada[faixa] = 0
+    km_realizada = km_realizada[faixas_horarias.keys()]  # garantir ordem
     km_realizada['Total realizado'] = km_realizada.sum(axis=1)
     km_realizada = km_realizada.reset_index()
 
@@ -67,6 +71,10 @@ if csv_file is not None:
 
     if 'distancia_planejada' in df_realizado_dia.columns:
         km_planejada = df_realizado_dia.groupby(['Serviço', 'faixa'])['distancia_planejada'].sum().unstack(fill_value=0)
+        for faixa in faixas_horarias.keys():
+            if faixa not in km_planejada.columns:
+                km_planejada[faixa] = 0
+        km_planejada = km_planejada[faixas_horarias.keys()]  # garantir ordem
         km_planejada['Total planejado (csv)'] = km_planejada.sum(axis=1)
         km_planejada = km_planejada.reset_index()
 
@@ -139,7 +147,8 @@ if csv_file is not None:
             st.altair_chart(chart, use_container_width=True)
 
         except Exception as e:
-            st.error(f"Erro ao processar o arquivo XLSX: {e}")
+            st.error(f"Erro ao processar o arquivo planejado: {e}")
+
 
 
 
