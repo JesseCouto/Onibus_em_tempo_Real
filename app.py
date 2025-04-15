@@ -57,6 +57,11 @@ if csv_file is not None:
     colunas_disponiveis = df_realizado.columns.tolist()
     coluna_distancia = st.selectbox("Selecione a coluna de quilometragem realizada", colunas_disponiveis)
 
+    # Verificar se a coluna de distância é válida
+    if coluna_distancia not in df_realizado.columns:
+        st.error(f"A coluna '{coluna_distancia}' não foi encontrada no arquivo.")
+        st.stop()
+
     # Somar km realizada por Serviço e Faixa
     km_realizada = df_realizado_dia.groupby(['Serviço', 'faixa'])[coluna_distancia].sum().unstack(fill_value=0)
 
