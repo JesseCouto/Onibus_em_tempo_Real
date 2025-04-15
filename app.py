@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import altair as alt
 
 st.title("Análise de Quilometragem por Faixa Horária")
 
@@ -27,54 +28,43 @@ def identificar_faixa_horaria(hora):
     return "Fora do intervalo"
 
 if csv_file is not None:
-    # Leitura do CSV com detecção automática de separador e encoding
     try:
         df_realizado = pd.read_csv(csv_file, encoding="utf-8", sep=None, engine="python")
     except Exception as e:
         st.error(f"Erro ao ler o CSV: {e}")
         st.stop()
 
-    # Mostrar dados brutos do CSV
     st.subheader("Dados Brutos do CSV (Realizado)")
     st.dataframe(df_realizado)
 
-    # Conversão de datas com tratamento para erros
     try:
         df_realizado['Início convertida'] = pd.to_datetime(df_realizado['Início da viagem'], errors='coerce', dayfirst=True)
     except Exception as e:
         st.warning(f"Erro na conversão da coluna 'Início da viagem': {e}")
         df_realizado['Início convertida'] = pd.NaT
 
-    # Filtrar pelo dia 13/04/2025
     data_filtro = pd.to_datetime("2025-04-13")
-    df_realizado_dia = df_realizado[df_realizado['Início convertida'].notna() & (df_realizado['Início convertida'].dt.date == data_filtro.date())].copy()
+    df_realizado_dia = df_realizado[df_realizado['Início convertida'].dt.date == data_filtro.date()].copy()
 
-    # Extrair hora e faixa
     df_realizado_dia['hora'] = df_realizado_dia['Início convertida'].dt.hour
     df_realizado_dia['faixa'] = df_realizado_dia['hora'].apply(identificar_faixa_horaria)
 
-    # Permitir escolha da coluna de distância
     colunas_disponiveis = df_realizado.columns.tolist()
     coluna_distancia = st.selectbox("Selecione a coluna de quilometragem realizada", colunas_disponiveis)
 
-    # Verificar se a coluna de distância é válida
-    if coluna_distancia not in df_realizado.columns:
-        st.error(f"A coluna '{coluna_distancia}' não foi encontrada no arquivo.")
-        st.stop()
+    # Filtro por serviço
+    servicos_disponiveis = sorted(df_realizado_dia['Serviço'].dropna().unique())
+    servicos_selecionados = st.multiselect("Filtrar por Serviço", servicos_disponiveis, default=servicos_disponiveis)
 
-    # Somar km realizada por Serviço e Faixa
+    df_realizado_dia = df_realizado_dia[df_realizado_dia['Serviço'].isin(servicos_selecionados)]
+
     km_realizada = df_realizado_dia.groupby(['Serviço', 'faixa'])[coluna_distancia].sum().unstack(fill_value=0)
-
-    # Adiciona coluna com o total da quilometragem realizada por linha
     km_realizada['Total realizado'] = km_realizada.sum(axis=1)
-
-    # Converte de volta para o formato com índice como coluna
     km_realizada = km_realizada.reset_index()
 
     st.subheader("Km Realizada por Faixa Horária (13/04/2025)")
     st.dataframe(km_realizada)
 
-    # Se o CSV também tiver a coluna de distância planejada, somamos ela por faixa
     if 'distancia_planejada' in df_realizado_dia.columns:
         km_planejada = df_realizado_dia.groupby(['Serviço', 'faixa'])['distancia_planejada'].sum().unstack(fill_value=0)
         km_planejada['Total planejado (csv)'] = km_planejada.sum(axis=1)
@@ -83,12 +73,10 @@ if csv_file is not None:
         st.subheader("Km Planejada por Faixa Horária (13/04/2025) - Extraído do CSV")
         st.dataframe(km_planejada)
 
-    # Comparação com planejado
     if xlsx_file is not None:
         try:
             df_planejado = pd.read_excel(xlsx_file)
 
-            # Agrupar por serviço e reorganizar colunas
             colunas_planejado = [
                 "Serviço",
                 "Quilometragem entre 00h e 03h",
@@ -103,7 +91,6 @@ if csv_file is not None:
 
             df_planejado = df_planejado[colunas_planejado]
 
-            # Renomear colunas para facilitar comparação
             renomear = {
                 "Quilometragem entre 00h e 03h": "00:00 - 02:59",
                 "Quilometragem entre 03h e 06h": "03:00 - 05:59",
@@ -116,29 +103,46 @@ if csv_file is not None:
             }
 
             df_planejado = df_planejado.rename(columns=renomear)
-
-            # Calcular total planejado
             df_planejado['Total planejado'] = df_planejado[[col for col in renomear.values()]].sum(axis=1)
 
-            # Mesclar os dados de realizado e planejado
             df_comparativo = pd.merge(km_realizada, df_planejado, on='Serviço', how='outer', suffixes=('_realizado', '_planejado'))
 
-            # Calcular percentual por faixa
             for faixa in faixas_horarias.keys():
                 col_real = f"{faixa}_realizado"
                 col_plan = f"{faixa}_planejado"
                 if col_real in df_comparativo.columns and col_plan in df_comparativo.columns:
                     df_comparativo[f"{faixa}_%"] = (df_comparativo[col_real] / df_comparativo[col_plan]) * 100
 
-            # Calcular diferença e percentual total
             df_comparativo['Diferença total'] = df_comparativo['Total realizado'] - df_comparativo['Total planejado']
             df_comparativo['% realizado vs planejado'] = (df_comparativo['Total realizado'] / df_comparativo['Total planejado']) * 100
 
             st.subheader("Comparativo Km Realizado x Planejado por Faixa Horária")
             st.dataframe(df_comparativo)
 
+            # Gerar gráfico de barras empilhadas para uma visualização geral
+            st.subheader("Gráfico Comparativo por Faixa Horária")
+
+            # Converter dados para formato long para visualização
+            grafico_data = df_comparativo.melt(
+                id_vars=['Serviço'],
+                value_vars=[faixa + sufixo for faixa in faixas_horarias.keys() for sufixo in ['_realizado', '_planejado']],
+                var_name='FaixaTipo', value_name='Quilometragem'
+            )
+
+            grafico_data[['Faixa', 'Tipo']] = grafico_data['FaixaTipo'].str.extract(r'(.*)_(realizado|planejado)')
+
+            chart = alt.Chart(grafico_data).mark_bar().encode(
+                x=alt.X('Faixa:N', title='Faixa Horária'),
+                y=alt.Y('sum(Quilometragem):Q', title='Quilometragem'),
+                color=alt.Color('Tipo:N', title='Tipo'),
+                column=alt.Column('Serviço:N', title='Serviço')
+            ).properties(height=300).configure_axisX(labelAngle=45)
+
+            st.altair_chart(chart, use_container_width=True)
+
         except Exception as e:
             st.error(f"Erro ao processar o arquivo .xlsx: {e}")
+
 
 
 
