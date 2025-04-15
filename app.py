@@ -84,7 +84,7 @@ if uploaded_file is not None:
                         try:
                             planejamento_df = pd.read_excel(plan_file)
 
-                            # Garantir que todas as colunas numéricas estão como float
+                            # Converter todas as colunas exceto 'Serviço'
                             for col in planejamento_df.columns:
                                 if col != 'Serviço':
                                     planejamento_df[col] = (
@@ -92,20 +92,20 @@ if uploaded_file is not None:
                                         .astype(str)
                                         .str.replace(',', '.')
                                         .str.replace(' ', '')
+                                        .str.replace('-', '0')  # se tiver traços, interpreta como 0
                                         .astype(float)
                                     )
 
                             st.subheader("Planejamento")
                             st.write(planejamento_df)
 
-                            # Preparar base de comparação
                             planejamento_df = planejamento_df.set_index('Serviço')
                             faixas_planejamento = planejamento_df.columns
 
-                            # Garantir que as mesmas faixas existam no realizado
+                            # Reindexar o realizado
                             realizado = realizado.reindex(index=planejamento_df.index, columns=faixas_planejamento, fill_value=0)
 
-                            # Calcular o percentual de cumprimento
+                            # Calcular o percentual
                             percentual_df = (realizado / planejamento_df.replace(0, pd.NA)) * 100
                             percentual_df = percentual_df.fillna(0).round(1)
 
