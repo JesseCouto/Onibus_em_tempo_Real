@@ -85,17 +85,16 @@ if uploaded_file is not None:
                             st.subheader("Planejamento")
                             st.write(planejamento_df)
 
-                            # Alinhar índices e colunas
-                            comum_index = realizado.index.intersection(planejamento_df['Serviço'])
-                            planejamento_df = planejamento_df.set_index('Serviço').loc[comum_index]
-                            realizado = realizado.loc[comum_index]
+                            # Preparar base de comparação
+                            planejamento_df = planejamento_df.set_index('Serviço')
+                            faixas_planejamento = planejamento_df.columns
 
-                            comum_colunas = realizado.columns.intersection(planejamento_df.columns)
-                            planejamento_df = planejamento_df[comum_colunas]
-                            realizado = realizado[comum_colunas]
+                            # Garantir que as mesmas faixas existam no realizado
+                            realizado = realizado.reindex(index=planejamento_df.index, columns=faixas_planejamento, fill_value=0)
 
+                            # Calcular o percentual com base no planejamento
                             percentual_df = (realizado / planejamento_df.replace(0, pd.NA)) * 100
-                            percentual_df = percentual_df.round(1).fillna(0)
+                            percentual_df = percentual_df.fillna(0).round(1)
 
                             st.subheader("Percentual de Cumprimento (%) - 13/04/2025")
                             st.write(percentual_df)
