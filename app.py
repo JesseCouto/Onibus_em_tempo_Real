@@ -33,10 +33,6 @@ if uploaded_csv and uploaded_xlsx:
         # Leitura do arquivo CSV (REALIZADO)
         df_realizado = pd.read_csv(uploaded_csv, sep=',', encoding='utf-8')
 
-        # Exibe as colunas lidas do CSV para debug
-        st.subheader("Colunas encontradas no arquivo .csv:")
-        st.write(df_realizado.columns.tolist())
-
         # Tenta acessar a coluna 'Início da viagem'
         if 'Início da viagem' not in df_realizado.columns:
             st.error("A coluna 'Início da viagem' não foi encontrada no arquivo CSV. Verifique o nome exato.")
