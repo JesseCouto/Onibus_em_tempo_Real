@@ -41,47 +41,60 @@ if uploaded_csv and uploaded_xlsx:
         else:
             # Conversão de datas com dateparser
             df_realizado['Início da viagem'] = df_realizado['Início da viagem'].apply(lambda x: dateparser.parse(str(x)))
+            
+            # Exibição das primeiras linhas das datas para debugging
+            st.subheader("Exemplo de datas 'Início da viagem' convertidas:")
+            st.write(df_realizado['Início da viagem'].head())
+
             df_realizado['Data'] = df_realizado['Início da viagem'].dt.date
             df_realizado['Faixa Horária'] = df_realizado['Início da viagem'].dt.time.apply(faixa_horaria)
+
+            # Exibição das datas únicas para verificar se 13/04/2025 está presente
+            st.subheader("Datas encontradas no arquivo .csv:")
+            st.write(df_realizado['Data'].unique())
 
             # Filtro pela data desejada
             data_filtro = dateparser.parse("13/04/2025").date()
             df_realizado = df_realizado[df_realizado['Data'] == data_filtro]
 
-            # Agrupamento por Serviço e Faixa Horária
-            km_realizado_por_faixa = df_realizado.groupby(['Serviço', 'Faixa Horária'])['distancia_planejada'].sum().unstack().fillna(0)
+            # Verificação se o filtro retornou dados
+            if df_realizado.empty:
+                st.warning(f"Nenhum dado encontrado para a data {data_filtro}. Verifique se os dados estão corretos no arquivo.")
+            else:
+                # Agrupamento por Serviço e Faixa Horária
+                km_realizado_por_faixa = df_realizado.groupby(['Serviço', 'Faixa Horária'])['distancia_planejada'].sum().unstack().fillna(0)
 
-            st.subheader("Km Realizada por Faixa Horária (13/04/2025)")
-            st.dataframe(km_realizado_por_faixa)
+                st.subheader("Km Realizada por Faixa Horária (13/04/2025)")
+                st.dataframe(km_realizado_por_faixa)
 
-            # Leitura do planejado
-            df_planejado = pd.read_excel(uploaded_xlsx)
-            df_planejado['Dia'] = pd.to_datetime(df_planejado['Dia'], dayfirst=True)
-            df_planejado = df_planejado[df_planejado['Dia'].dt.date == data_filtro]
+                # Leitura do planejado
+                df_planejado = pd.read_excel(uploaded_xlsx)
+                df_planejado['Dia'] = pd.to_datetime(df_planejado['Dia'], dayfirst=True)
+                df_planejado = df_planejado[df_planejado['Dia'].dt.date == data_filtro]
 
-            colunas_faixas_planejado = {
-                '00h-03h': 'Quilometragem entre 00h e 03h',
-                '03h-06h': 'Quilometragem entre 03h e 06h',
-                '06h-09h': 'Quilometragem entre 06h e 09h',
-                '09h-12h': 'Quilometragem entre 09h e 12h',
-                '12h-15h': 'Quilometragem entre 12h e 15h',
-                '15h-18h': 'Quilometragem entre 15h e 18h',
-                '18h-21h': 'Quilometragem entre 18h e 21h',
-                '21h-24h': 'Quilometragem entre 21h e 24h'
-            }
+                colunas_faixas_planejado = {
+                    '00h-03h': 'Quilometragem entre 00h e 03h',
+                    '03h-06h': 'Quilometragem entre 03h e 06h',
+                    '06h-09h': 'Quilometragem entre 06h e 09h',
+                    '09h-12h': 'Quilometragem entre 09h e 12h',
+                    '12h-15h': 'Quilometragem entre 12h e 15h',
+                    '15h-18h': 'Quilometragem entre 15h e 18h',
+                    '18h-21h': 'Quilometragem entre 18h e 21h',
+                    '21h-24h': 'Quilometragem entre 21h e 24h'
+                }
 
-            df_planejado_agg = df_planejado.groupby('Serviço').agg({v: 'sum' for v in colunas_faixas_planejado.values()})
-            df_planejado_agg.rename(columns={v: k for k, v in colunas_faixas_planejado.items()}, inplace=True)
+                df_planejado_agg = df_planejado.groupby('Serviço').agg({v: 'sum' for v in colunas_faixas_planejado.values()})
+                df_planejado_agg.rename(columns={v: k for k, v in colunas_faixas_planejado.items()}, inplace=True)
 
-            st.subheader("Km Planejada por Faixa Horária (13/04/2025)")
-            st.dataframe(df_planejado_agg)
+                st.subheader("Km Planejada por Faixa Horária (13/04/2025)")
+                st.dataframe(df_planejado_agg)
 
-            # Comparação percentual
-            percentual_cumprimento = (km_realizado_por_faixa / df_planejado_agg) * 100
-            percentual_cumprimento = percentual_cumprimento.fillna(0).round(1)
+                # Comparação percentual
+                percentual_cumprimento = (km_realizado_por_faixa / df_planejado_agg) * 100
+                percentual_cumprimento = percentual_cumprimento.fillna(0).round(1)
 
-            st.subheader("Percentual de Cumprimento (%) por Faixa Horária")
-            st.dataframe(percentual_cumprimento)
+                st.subheader("Percentual de Cumprimento (%) por Faixa Horária")
+                st.dataframe(percentual_cumprimento)
 
     except Exception as e:
         st.error(f"Erro ao processar os arquivos: {e}")
