@@ -82,6 +82,11 @@ if uploaded_file is not None:
                     if plan_file is not None:
                         try:
                             planejamento_df = pd.read_excel(plan_file)
+
+                            # Verificar e converter a coluna de quilometragem planejada
+                            if 'distancia_planejada' in planejamento_df.columns:
+                                planejamento_df['distancia_planejada'] = planejamento_df['distancia_planejada'].astype(str).str.replace(',', '.').astype(float)
+
                             st.subheader("Planejamento")
                             st.write(planejamento_df)
 
