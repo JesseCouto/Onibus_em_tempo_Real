@@ -1,115 +1,107 @@
 import streamlit as st
 import pandas as pd
 
-st.title("Visualização de Dados Realizados x Planejamento")
+st.set_page_config(page_title="Comparador de Planejado x Realizado", layout="wide")
 
-# Carregar arquivo CSV
-st.sidebar.header("Carregar Dados Realizados (CSV)")
-uploaded_file = st.sidebar.file_uploader("Escolha um arquivo CSV", type=["csv"])
+st.title("📊 Comparador de Planejado x Realizado")
 
-# Carregar arquivo de planejamento
-st.sidebar.header("Carregar Planejamento (XLSX)")
-plan_file = st.sidebar.file_uploader("Escolha um arquivo XLSX", type=["xlsx"])
+# Upload do arquivo de realizado
+real_file = st.file_uploader("Carregar arquivo de realizado (.csv)", type=["csv"])
 
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
+if real_file is not None:
+    # Leitura do arquivo CSV
+    df = pd.read_csv(real_file, sep=';', encoding='latin1')
 
+    # Garantir que a coluna de data está em formato datetime
     if 'Início da viagem' in df.columns:
-        month_map = {
-            'jan.': '01', 'fev.': '02', 'mar.': '03', 'abr.': '04',
-            'mai.': '05', 'jun.': '06', 'jul.': '07', 'ago.': '08',
-            'set.': '09', 'out.': '10', 'nov.': '11', 'dez.': '12'
-        }
+        df['Início da viagem'] = pd.to_datetime(df['Início da viagem'], errors='coerce')
+        df['Data Início da viagem'] = df['Início da viagem'].dt.date
 
+    # Faixa horária por hora do início
+    def classificar_faixa_horaria(horario):
+        if pd.isna(horario):
+            return 'Indefinido'
+        hora = horario.hour
+        if 5 <= hora < 8:
+            return 'Madrugada'
+        elif 8 <= hora < 12:
+            return 'Manhã'
+        elif 12 <= hora < 17:
+            return 'Tarde'
+        elif 17 <= hora < 21:
+            return 'Noite'
+        else:
+            return 'Madrugada'
+
+    df['Faixa Horária'] = df['Início da viagem'].dt.time.apply(lambda x: classificar_faixa_horaria(pd.to_datetime(x, errors='coerce')))
+
+    # Exibir dados carregados
+    st.subheader("Dados do Realizado")
+    st.write(df)
+
+    # Calcular km realizada por faixa horária
+    if 'distancia_planejada' in df.columns and 'Serviço' in df.columns:
+        df_grouped = df.pivot_table(
+            index='Serviço',
+            columns='Faixa Horária',
+            values='distancia_planejada',
+            aggfunc='sum',
+            fill_value=0
+        )
+
+        st.subheader("Km Realizada por Faixa Horária (todas as datas)")
+        st.write(df_grouped)
+
+    # Upload da planilha de planejamento
+    plan_file = st.file_uploader("Carregar arquivo de planejamento (.xlsx)", type=["xlsx"])
+
+    if plan_file is not None:
         try:
-            # Extrair data e hora separadamente
-            df['Data Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2} de \w{3}\. de \d{4})')[0]
-            df['Data Início da viagem'] = df['Data Início da viagem'].replace(month_map, regex=True)
-            df['Data Início da viagem'] = df['Data Início da viagem'].str.replace(r' de ', '/', regex=True)
-            df['Data Início da viagem'] = pd.to_datetime(df['Data Início da viagem'], format='%d/%m/%Y', errors='coerce')
-            df['Data Início da viagem'] = df['Data Início da viagem'].dt.date
+            planejamento_df = pd.read_excel(plan_file)
 
-            df['Hora Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2}:\d{2}:\d{2})')[0]
-            df['Hora Início da viagem'] = pd.to_datetime(df['Hora Início da viagem'], format='%H:%M:%S', errors='coerce').dt.time
+            st.subheader("Planejamento")
+            st.write(planejamento_df)
 
-            df = df.dropna(subset=['Data Início da viagem', 'Hora Início da viagem'])
+            if 'Data' in planejamento_df.columns:
+                planejamento_df['Data'] = pd.to_datetime(planejamento_df['Data'], errors='coerce').dt.date
+                data_comum = sorted(set(df['Data Início da viagem']) & set(planejamento_df['Data']))
 
-        except Exception as e:
-            st.error(f"Erro ao separar e converter os dados: {e}")
+                if len(data_comum) == 0:
+                    st.warning("Não há datas em comum entre os dados realizados e o planejamento.")
+                else:
+                    # Seleciona uma data em comum (ex: 13/04/2025)
+                    data_analise = st.selectbox("Selecionar data para análise", data_comum)
 
-        # Converter distancia_planejada se existir
-        if 'distancia_planejada' in df.columns:
-            df['distancia_planejada'] = df['distancia_planejada'].astype(str).str.replace(',', '.').astype(float)
+                    df_dia = df[df['Data Início da viagem'] == data_analise]
+                    planejamento_dia = planejamento_df[planejamento_df['Data'] == data_analise]
 
-        st.subheader("Dados Brutos")
-        st.write(df)
+                    # Recalcular distâncias por faixa horária com base no dia selecionado
+                    df_grouped_dia = df_dia.pivot_table(
+                        index='Serviço',
+                        columns='Faixa Horária',
+                        values='distancia_planejada',
+                        aggfunc='sum',
+                        fill_value=0
+                    )
 
-        def faixa_horaria(hour):
-            if 0 <= hour < 3:
-                return '00:00 - 02:59'
-            elif 3 <= hour < 6:
-                return '03:00 - 05:59'
-            elif 6 <= hour < 9:
-                return '06:00 - 08:59'
-            elif 9 <= hour < 12:
-                return '09:00 - 11:59'
-            elif 12 <= hour < 15:
-                return '12:00 - 14:59'
-            elif 15 <= hour < 18:
-                return '15:00 - 17:59'
-            elif 18 <= hour < 21:
-                return '18:00 - 20:59'
-            else:
-                return '21:00 - 23:59'
+                    st.subheader(f"Km Realizada por Faixa Horária em {data_analise}")
+                    st.write(df_grouped_dia)
 
-        # Criar faixa horária
-        df['Faixa Horária'] = df['Hora Início da viagem'].apply(lambda x: faixa_horaria(int(str(x)[:2])))
+                    # Filtrar e alinhar planejamento com os serviços e faixas horárias do realizado
+                    comum_index = df_grouped_dia.index.intersection(planejamento_dia['Serviço'])
+                    planejamento_dia = planejamento_dia.set_index('Serviço').loc[comum_index]
+                    realizado_df = df_grouped_dia.loc[comum_index]
 
-        if 'distancia_planejada' in df.columns and 'Serviço' in df.columns:
-            # Agrupar distância planejada por Serviço e Faixa Horária
-            df_grouped = df.pivot_table(
-                index='Serviço',
-                columns='Faixa Horária',
-                values='distancia_planejada',
-                aggfunc='sum',
-                fill_value=0
-            )
-
-            st.subheader("Km Realizada por Faixa Horária")
-            st.write(df_grouped)
-
-            # Se a planilha de planejamento for carregada
-            if plan_file is not None:
-                try:
-                    planejamento_df = pd.read_excel(plan_file)
-
-                    st.subheader("Planejamento")
-                    st.write(planejamento_df)
-
-                    # Selecione apenas linhas do planejamento que coincidem com a data do realizado
-                    data_realizada = df['Data Início da viagem'].unique()
-                    if 'Data' in planejamento_df.columns:
-                        planejamento_df['Data'] = pd.to_datetime(planejamento_df['Data'], errors='coerce').dt.date
-                        planejamento_df = planejamento_df[planejamento_df['Data'].isin(data_realizada)]
-
-                    # Garantir que ambos os dataframes têm os mesmos índices e colunas
-                    comum_index = df_grouped.index.intersection(planejamento_df['Serviço'])
-                    planejamento_df = planejamento_df.set_index('Serviço').loc[comum_index]
-                    realizado_df = df_grouped.loc[comum_index]
-
-                    comum_colunas = realizado_df.columns.intersection(planejamento_df.columns)
-                    planejamento_df = planejamento_df[comum_colunas]
+                    comum_colunas = realizado_df.columns.intersection(planejamento_dia.columns)
+                    planejamento_dia = planejamento_dia[comum_colunas]
                     realizado_df = realizado_df[comum_colunas]
 
                     # Calcular percentual de cumprimento
-                    percentual_df = (realizado_df / planejamento_df.replace(0, pd.NA)) * 100
+                    percentual_df = (realizado_df / planejamento_dia.replace(0, pd.NA)) * 100
                     percentual_df = percentual_df.round(1).fillna(0)
 
-                    st.subheader("Percentual de Cumprimento (%)")
+                    st.subheader(f"Percentual de Cumprimento em {data_analise} (%)")
                     st.write(percentual_df)
 
-                except Exception as e:
-                    st.error(f"Erro ao ler o arquivo de planejamento: {e}")
-
-    else:
-        st.warning("A coluna 'Início da viagem' não foi encontrada no arquivo.")
+        except Exception as e:
+            st.error(f"Erro ao ler o arquivo de planejamento: {e}")
