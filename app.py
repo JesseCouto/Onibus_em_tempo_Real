@@ -30,25 +30,21 @@ def faixa_horaria(horario):
 # Processamento dos arquivos
 if uploaded_csv:
     try:
-        # Leitura do arquivo CSV (REALIZADO)
-        df_realizado = pd.read_csv(uploaded_csv, sep=';', encoding='utf-8', header=0)
+        # Leitura do arquivo CSV (REALIZADO) sem cabeçalho
+        df_realizado = pd.read_csv(uploaded_csv, sep=';', encoding='utf-8', header=None)
 
-        # Exibe as colunas lidas do CSV para debug
-        st.subheader("Colunas encontradas no arquivo .csv:")
-        st.write(df_realizado.columns.tolist())
+        # Exibe as primeiras linhas do CSV para debug
+        st.subheader("Primeiras linhas do arquivo .csv para análise:")
+        st.write(df_realizado.head())
 
-        # Verificando se há uma linha extra de cabeçalho e ajustando
-        if len(df_realizado.columns) == 1 and 'mapa,Serviço,Vista,Sentido,distancia_planejada,Início da viagem,Fim da viagem,Veículo,Planejamento' in df_realizado.columns:
-            # Ajustando as colunas manualmente
-            df_realizado.columns = ['mapa', 'Serviço', 'Vista', 'Sentido', 'distancia_planejada', 'Início da viagem', 'Fim da viagem', 'Veículo', 'Planejamento']
-            # Recarregando os dados corretamente
-            df_realizado = pd.read_csv(uploaded_csv, sep=';', encoding='utf-8', header=1)
+        # Ajustar as colunas manualmente
+        df_realizado.columns = ['mapa', 'Serviço', 'Vista', 'Sentido', 'distancia_planejada', 'Início da viagem', 'Fim da viagem', 'Veículo', 'Planejamento']
 
-        # Tenta acessar a coluna 'Início da viagem' no arquivo CSV
+        # Verificando a existência da coluna 'Início da viagem'
         if 'Início da viagem' not in df_realizado.columns:
             st.error("A coluna 'Início da viagem' não foi encontrada no arquivo CSV. Verifique o nome exato.")
         else:
-            # Processando o CSV
+            # Convertendo a coluna 'Início da viagem' para datetime
             df_realizado['Início da viagem'] = pd.to_datetime(df_realizado['Início da viagem'], dayfirst=True)
             df_realizado['Data'] = df_realizado['Início da viagem'].dt.date
             df_realizado['Faixa Horária'] = df_realizado['Início da viagem'].dt.time.apply(faixa_horaria)
