@@ -1,89 +1,82 @@
 import streamlit as st
 import pandas as pd
-import datetime
 
-st.set_page_config(layout="wide")
-st.title("Análise de Quilometragem por Faixa Horária")
+st.title("Comparação de Planejado vs Realizado por Faixa Horária")
 
 # Upload dos arquivos
-csv_file = st.file_uploader("Envie o arquivo de realizado (.csv)", type="csv")
-plan_file = st.file_uploader("Envie o arquivo de planejamento (.xlsx)", type="xlsx")
+uploaded_csv = st.file_uploader("Envie o arquivo REALIZADO (.csv)", type="csv")
+uploaded_xlsx = st.file_uploader("Envie o arquivo PLANEJADO (.xlsx)", type="xlsx")
 
-# Data de interesse
-data_planejada = datetime.date(2025, 4, 13)
+# Função para determinar a faixa horária
+def faixa_horaria(horario):
+    hora = horario.hour
+    if 0 <= hora < 3:
+        return "00h-03h"
+    elif 3 <= hora < 6:
+        return "03h-06h"
+    elif 6 <= hora < 9:
+        return "06h-09h"
+    elif 9 <= hora < 12:
+        return "09h-12h"
+    elif 12 <= hora < 15:
+        return "12h-15h"
+    elif 15 <= hora < 18:
+        return "15h-18h"
+    elif 18 <= hora < 21:
+        return "18h-21h"
+    else:
+        return "21h-24h"
 
-# Faixas horárias
-faixas = {
-    "00h às 03h": (0, 3),
-    "03h às 06h": (3, 6),
-    "06h às 09h": (6, 9),
-    "09h às 12h": (9, 12),
-    "12h às 15h": (12, 15),
-    "15h às 18h": (15, 18),
-    "18h às 21h": (18, 21),
-    "21h às 24h": (21, 24),
-}
-
-# Processar realizado
-if csv_file is not None:
+# Processamento dos arquivos
+if uploaded_csv and uploaded_xlsx:
     try:
-        df = pd.read_csv(csv_file, sep=';', encoding='utf-8')
-        df['Início da viagem'] = pd.to_datetime(df['Início da viagem'], errors='coerce')
+        # Leitura do arquivo CSV (REALIZADO) — NÃO MEXER NESSA PARTE
+        df_realizado = pd.read_csv(uploaded_csv, sep=';', encoding='utf-8')
+        df_realizado['Início da viagem'] = pd.to_datetime(df_realizado['Início da viagem'], dayfirst=True)
+        df_realizado['Data'] = df_realizado['Início da viagem'].dt.date
+        df_realizado['Faixa Horária'] = df_realizado['Início da viagem'].dt.time.apply(faixa_horaria)
 
-        df = df[df['Início da viagem'].dt.date == data_planejada]
-        df['Hora'] = df['Início da viagem'].dt.hour
+        # Filtrar apenas o dia 13/04/2025
+        data_filtro = pd.to_datetime("13/04/2025", dayfirst=True).date()
+        df_realizado = df_realizado[df_realizado['Data'] == data_filtro]
 
-        resultados = []
-        for faixa, (inicio, fim) in faixas.items():
-            faixa_df = df[(df['Hora'] >= inicio) & (df['Hora'] < fim)]
-            soma_distancia = faixa_df.groupby('Serviço')['Distância'].sum()
-            resultados.append(soma_distancia.rename(faixa))
+        # Soma da quilometragem por faixa e serviço
+        km_realizado_por_faixa = df_realizado.groupby(['Serviço', 'Faixa Horária'])['Distância prevista (Km)'].sum().unstack().fillna(0)
 
-        realizado = pd.concat(resultados, axis=1).fillna(0)
-        st.subheader(f"Km Realizada por Faixa Horária ({data_planejada.strftime('%d/%m/%Y')})")
-        st.write(realizado)
+        st.subheader("Km Realizada por Faixa Horária (13/04/2025)")
+        st.dataframe(km_realizado_por_faixa)
+
+        # Leitura do PLANEJADO
+        df_planejado = pd.read_excel(uploaded_xlsx)
+
+        # Conversão da coluna 'Dia' para datetime
+        df_planejado['Dia'] = pd.to_datetime(df_planejado['Dia'], dayfirst=True)
+        df_planejado = df_planejado[df_planejado['Dia'].dt.date == data_filtro]
+
+        # Selecionar colunas de faixa horária do planejado
+        colunas_faixas_planejado = {
+            '00h-03h': 'Quilometragem entre 00h e 03h',
+            '03h-06h': 'Quilometragem entre 03h e 06h',
+            '06h-09h': 'Quilometragem entre 06h e 09h',
+            '09h-12h': 'Quilometragem entre 09h e 12h',
+            '12h-15h': 'Quilometragem entre 12h e 15h',
+            '15h-18h': 'Quilometragem entre 15h e 18h',
+            '18h-21h': 'Quilometragem entre 18h e 21h',
+            '21h-24h': 'Quilometragem entre 21h e 24h'
+        }
+
+        df_planejado_agg = df_planejado.groupby('Serviço').agg({v: 'sum' for v in colunas_faixas_planejado.values()})
+        df_planejado_agg.rename(columns={v: k for k, v in colunas_faixas_planejado.items()}, inplace=True)
+
+        st.subheader("Km Planejada por Faixa Horária (13/04/2025)")
+        st.dataframe(df_planejado_agg)
+
+        # Comparação percentual
+        percentual_cumprimento = (km_realizado_por_faixa / df_planejado_agg) * 100
+        percentual_cumprimento = percentual_cumprimento.fillna(0).round(1)
+
+        st.subheader("Percentual de Cumprimento (%) por Faixa Horária")
+        st.dataframe(percentual_cumprimento)
 
     except Exception as e:
-        st.error(f"Erro ao ler ou processar o arquivo de realizado: {e}")
-
-# Processar planejamento
-if plan_file is not None:
-    try:
-        planejamento_df = pd.read_excel(plan_file)
-
-        # Converter coluna de data e filtrar
-        if 'Data' in planejamento_df.columns:
-            planejamento_df['Data'] = pd.to_datetime(planejamento_df['Data'], dayfirst=True, errors='coerce').dt.date
-            planejamento_df = planejamento_df[planejamento_df['Data'] == data_planejada]
-
-        st.subheader("Planejamento (13/04/2025)")
-        st.write(planejamento_df)
-
-        colunas_faixas = [
-            'Quilometragem entre 00h e 03h',
-            'Quilometragem entre 03h e 06h',
-            'Quilometragem entre 06h e 09h',
-            'Quilometragem entre 09h e 12h',
-            'Quilometragem entre 12h e 15h',
-            'Quilometragem entre 15h e 18h',
-            'Quilometragem entre 18h e 21h',
-            'Quilometragem entre 21h e 24h'
-        ]
-
-        planejamento_df = planejamento_df[['Serviço'] + colunas_faixas]
-        planejamento_df[colunas_faixas] = planejamento_df[colunas_faixas].apply(
-            lambda x: x.astype(str).str.replace(',', '.').astype(float)
-        )
-        planejamento_df = planejamento_df.set_index('Serviço')
-
-        # Comparar com realizado
-        realizado = realizado.reindex(index=planejamento_df.index, columns=colunas_faixas, fill_value=0)
-
-        percentual_df = (realizado / planejamento_df.replace(0, pd.NA)) * 100
-        percentual_df = percentual_df.fillna(0).round(1)
-
-        st.subheader("Percentual de Cumprimento (%) - 13/04/2025")
-        st.write(percentual_df)
-
-    except Exception as e:
-        st.error(f"Erro ao ler ou processar o arquivo de planejamento: {e}")
+        st.error(f"Erro ao processar os arquivos: {e}")
