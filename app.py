@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-st.title("Visualização de Dados CSV + Comparação com Planejamento")
+st.title("Visualização de Dados Realizados x Planejamento")
 
 # Carregar arquivo CSV
 st.sidebar.header("Carregar Dados Realizados (CSV)")
@@ -22,6 +22,7 @@ if uploaded_file is not None:
         }
 
         try:
+            # Extrair data e hora separadamente
             df['Data Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2} de \w{3}\. de \d{4})')[0]
             df['Data Início da viagem'] = df['Data Início da viagem'].replace(month_map, regex=True)
             df['Data Início da viagem'] = df['Data Início da viagem'].str.replace(r' de ', '/', regex=True)
@@ -36,6 +37,7 @@ if uploaded_file is not None:
         except Exception as e:
             st.error(f"Erro ao separar e converter os dados: {e}")
 
+        # Converter distancia_planejada se existir
         if 'distancia_planejada' in df.columns:
             df['distancia_planejada'] = df['distancia_planejada'].astype(str).str.replace(',', '.').astype(float)
 
@@ -60,9 +62,11 @@ if uploaded_file is not None:
             else:
                 return '21:00 - 23:59'
 
+        # Criar faixa horária
         df['Faixa Horária'] = df['Hora Início da viagem'].apply(lambda x: faixa_horaria(int(str(x)[:2])))
 
         if 'distancia_planejada' in df.columns and 'Serviço' in df.columns:
+            # Agrupar distância planejada por Serviço e Faixa Horária
             df_grouped = df.pivot_table(
                 index='Serviço',
                 columns='Faixa Horária',
@@ -78,9 +82,15 @@ if uploaded_file is not None:
             if plan_file is not None:
                 try:
                     planejamento_df = pd.read_excel(plan_file)
-                    
+
                     st.subheader("Planejamento")
                     st.write(planejamento_df)
+
+                    # Selecione apenas linhas do planejamento que coincidem com a data do realizado
+                    data_realizada = df['Data Início da viagem'].unique()
+                    if 'Data' in planejamento_df.columns:
+                        planejamento_df['Data'] = pd.to_datetime(planejamento_df['Data'], errors='coerce').dt.date
+                        planejamento_df = planejamento_df[planejamento_df['Data'].isin(data_realizada)]
 
                     # Garantir que ambos os dataframes têm os mesmos índices e colunas
                     comum_index = df_grouped.index.intersection(planejamento_df['Serviço'])
