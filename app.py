@@ -36,7 +36,7 @@ if uploaded_file is not None:
 
     if 'Início da viagem' in df.columns:
         try:
-            # Extrair data e hora separadamente
+            # Extrair data e hora
             df['Data Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2} de \w{3}\. de \d{4})')[0]
             df['Hora Início da viagem'] = df['Início da viagem'].str.extract(r'(\d{2}:\d{2}:\d{2})')[0]
 
@@ -56,9 +56,9 @@ if uploaded_file is not None:
             st.subheader("Dados Realizados Brutos")
             st.write(df)
 
-            # Filtro por data específica do planejamento
-            data_base = pd.to_datetime("2025-04-13").date()
-            df_filtrado = df[df['Data Início da viagem'] == data_base]
+            # Filtro apenas do dia do planejamento
+            data_planejada = pd.to_datetime("2025-04-13").date()
+            df_filtrado = df[df['Data Início da viagem'] == data_planejada]
 
             if df_filtrado.empty:
                 st.warning("Nenhum dado encontrado com a data 13/04/2025.")
@@ -77,7 +77,7 @@ if uploaded_file is not None:
                     st.subheader("Km Realizada por Faixa Horária (13/04/2025)")
                     st.write(realizado)
 
-                    # Leitura do planejamento
+                    # Planejamento
                     if plan_file is not None:
                         try:
                             planejamento_df = pd.read_excel(plan_file)
@@ -85,7 +85,6 @@ if uploaded_file is not None:
                             st.subheader("Planejamento")
                             st.write(planejamento_df)
 
-                            # Selecionar apenas as colunas relevantes
                             colunas_faixas = [
                                 'Quilometragem entre 00h e 03h',
                                 'Quilometragem entre 03h e 06h',
@@ -103,7 +102,7 @@ if uploaded_file is not None:
                             )
                             planejamento_df = planejamento_df.set_index('Serviço')
 
-                            # Reindexar o realizado para coincidir com os serviços e faixas
+                            # Comparar com realizado
                             realizado = realizado.reindex(index=planejamento_df.index, columns=colunas_faixas, fill_value=0)
 
                             percentual_df = (realizado / planejamento_df.replace(0, pd.NA)) * 100
@@ -115,7 +114,7 @@ if uploaded_file is not None:
                         except Exception as e:
                             st.error(f"Erro ao ler ou processar o arquivo de planejamento: {e}")
                 else:
-                    st.warning("Colunas 'distancia_planejada' ou 'Serviço' ausentes.")
+                    st.warning("Colunas 'distancia_planejada' ou 'Serviço' ausentes no CSV.")
         except Exception as e:
             st.error(f"Erro ao processar os dados: {e}")
     else:
