@@ -103,15 +103,13 @@ if csv_file is not None:
             }
 
             df_planejado = df_planejado.rename(columns=renomear)
-            df_planejado['Total planejado'] = df_planejado[[col for col in renomear.values()]].sum(axis=1)
+            df_planejado['Total planejado'] = df_planejado[list(renomear.values())].sum(axis=1)
 
             df_comparativo = pd.merge(km_realizada, df_planejado, on='Serviço', how='outer', suffixes=('_realizado', '_planejado'))
 
             for faixa in faixas_horarias.keys():
-                col_real = f"{faixa}_realizado"
-                col_plan = f"{faixa}_planejado"
-                if col_real in df_comparativo.columns and col_plan in df_comparativo.columns:
-                    df_comparativo[f"{faixa}_%"] = (df_comparativo[col_real] / df_comparativo[col_plan]) * 100
+                if faixa in df_comparativo.columns and faixa + '_realizado' in df_comparativo.columns:
+                    df_comparativo[f"{faixa}_%"] = (df_comparativo[faixa + '_realizado'] / df_comparativo[faixa]) * 100
 
             df_comparativo['Diferença total'] = df_comparativo['Total realizado'] - df_comparativo['Total planejado']
             df_comparativo['% realizado vs planejado'] = (df_comparativo['Total realizado'] / df_comparativo['Total planejado']) * 100
@@ -119,17 +117,17 @@ if csv_file is not None:
             st.subheader("Comparativo Km Realizado x Planejado por Faixa Horária")
             st.dataframe(df_comparativo)
 
-            # Gerar gráfico de barras empilhadas para uma visualização geral
+            # Gráfico Comparativo
             st.subheader("Gráfico Comparativo por Faixa Horária")
 
-            # Converter dados para formato long para visualização
             grafico_data = df_comparativo.melt(
                 id_vars=['Serviço'],
-                value_vars=[faixa + sufixo for faixa in faixas_horarias.keys() for sufixo in ['_realizado', '_planejado']],
+                value_vars=[faixa for faixa in faixas_horarias.keys()] + [faixa + '_realizado' for faixa in faixas_horarias.keys()],
                 var_name='FaixaTipo', value_name='Quilometragem'
             )
 
-            grafico_data[['Faixa', 'Tipo']] = grafico_data['FaixaTipo'].str.extract(r'(.*)_(realizado|planejado)')
+            grafico_data['Tipo'] = grafico_data['FaixaTipo'].apply(lambda x: 'Planejado' if '_realizado' not in x else 'Realizado')
+            grafico_data['Faixa'] = grafico_data['FaixaTipo'].apply(lambda x: x.replace('_realizado', ''))
 
             chart = alt.Chart(grafico_data).mark_bar().encode(
                 x=alt.X('Faixa:N', title='Faixa Horária'),
@@ -141,7 +139,8 @@ if csv_file is not None:
             st.altair_chart(chart, use_container_width=True)
 
         except Exception as e:
-            st.error(f"Erro ao processar o arquivo .xlsx: {e}")
+            st.error(f"Erro ao processar o arquivo XLSX: {e}")
+
 
 
 
