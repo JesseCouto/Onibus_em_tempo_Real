@@ -69,18 +69,6 @@ if csv_file is not None:
     st.subheader("Km Realizada por Faixa Horária (13/04/2025)")
     st.dataframe(km_realizada)
 
-    if 'distancia_planejada' in df_realizado_dia.columns:
-        km_planejada = df_realizado_dia.groupby(['Serviço', 'faixa'])['distancia_planejada'].sum().unstack(fill_value=0)
-        for faixa in faixas_horarias.keys():
-            if faixa not in km_planejada.columns:
-                km_planejada[faixa] = 0
-        km_planejada = km_planejada[faixas_horarias.keys()]  # garantir ordem
-        km_planejada['Total planejado (csv)'] = km_planejada.sum(axis=1)
-        km_planejada = km_planejada.reset_index()
-
-        st.subheader("Km Planejada por Faixa Horária (13/04/2025) - Extraído do CSV")
-        st.dataframe(km_planejada)
-
     if xlsx_file is not None:
         try:
             df_planejado = pd.read_excel(xlsx_file)
@@ -116,7 +104,7 @@ if csv_file is not None:
             df_comparativo = pd.merge(km_realizada, df_planejado, on='Serviço', how='outer', suffixes=('_realizado', '_planejado'))
 
             for faixa in faixas_horarias.keys():
-                if faixa in df_comparativo.columns and faixa + '_realizado' in df_comparativo.columns:
+                if faixa in df_comparativo.columns:
                     df_comparativo[f"{faixa}_%"] = (df_comparativo[faixa + '_realizado'] / df_comparativo[faixa]) * 100
 
             df_comparativo['Diferença total'] = df_comparativo['Total realizado'] - df_comparativo['Total planejado']
@@ -130,7 +118,10 @@ if csv_file is not None:
 
             grafico_data = df_comparativo.melt(
                 id_vars=['Serviço'],
-                value_vars=[faixa for faixa in faixas_horarias.keys()] + [faixa + '_realizado' for faixa in faixas_horarias.keys()],
+                value_vars=[
+                    *[faixa for faixa in faixas_horarias.keys()],
+                    *[faixa + '_realizado' for faixa in faixas_horarias.keys()]
+                ],
                 var_name='FaixaTipo', value_name='Quilometragem'
             )
 
@@ -138,16 +129,17 @@ if csv_file is not None:
             grafico_data['Faixa'] = grafico_data['FaixaTipo'].apply(lambda x: x.replace('_realizado', ''))
 
             chart = alt.Chart(grafico_data).mark_bar().encode(
-                x=alt.X('Faixa:N', title='Faixa Horária'),
-                y=alt.Y('sum(Quilometragem):Q', title='Quilometragem'),
-                color=alt.Color('Tipo:N', title='Tipo'),
-                column=alt.Column('Serviço:N', title='Serviço')
-            ).properties(height=300).configure_axisX(labelAngle=45)
+                x='Faixa:N',
+                y='Quilometragem:Q',
+                color='Tipo:N',
+                column='Serviço:N'
+            ).properties(width=100, height=300)
 
             st.altair_chart(chart, use_container_width=True)
 
         except Exception as e:
-            st.error(f"Erro ao processar o arquivo planejado: {e}")
+            st.error(f"Erro ao ler ou processar o arquivo XLSX: {e}")
+
 
 
 
