@@ -31,11 +31,18 @@ def faixa_horaria(horario):
 if uploaded_csv:
     try:
         # Leitura do arquivo CSV (REALIZADO)
-        df_realizado = pd.read_csv(uploaded_csv, sep=';', encoding='utf-8')
+        df_realizado = pd.read_csv(uploaded_csv, sep=';', encoding='utf-8', header=0)
 
         # Exibe as colunas lidas do CSV para debug
         st.subheader("Colunas encontradas no arquivo .csv:")
         st.write(df_realizado.columns.tolist())
+
+        # Verificando se há uma linha extra de cabeçalho e ajustando
+        if len(df_realizado.columns) == 1 and 'mapa,Serviço,Vista,Sentido,distancia_planejada,Início da viagem,Fim da viagem,Veículo,Planejamento' in df_realizado.columns:
+            # Ajustando as colunas manualmente
+            df_realizado.columns = ['mapa', 'Serviço', 'Vista', 'Sentido', 'distancia_planejada', 'Início da viagem', 'Fim da viagem', 'Veículo', 'Planejamento']
+            # Recarregando os dados corretamente
+            df_realizado = pd.read_csv(uploaded_csv, sep=';', encoding='utf-8', header=1)
 
         # Tenta acessar a coluna 'Início da viagem' no arquivo CSV
         if 'Início da viagem' not in df_realizado.columns:
